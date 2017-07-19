@@ -16,7 +16,7 @@ OUTPUTDIR = out
 # Containerized build parameters.
 BUILD_CONTAINER_IMAGE = wcn-build
 BUILD_CONTAINER_NAME = wcn-builder
-BUILD_CONTAINER_REPO_PATH = /go/src/github.com/microsoft/windowscontainernetworking
+BUILD_CONTAINER_REPO_PATH = /go/src/visualstudio.com/containernetworking/cni
 BUILD_USER ?= $(shell id -u)
 
 # Docker plugin image parameters.

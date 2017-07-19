@@ -4,10 +4,10 @@
 package network
 
 import (
-	"github.com/Microsoft/windowscontainernetworking/cni"
-	"github.com/Microsoft/windowscontainernetworking/common"
-	"github.com/Microsoft/windowscontainernetworking/network"
 	"github.com/Sirupsen/logrus"
+	"visualstudio.com/containernetworking/cni/cni"
+	"visualstudio.com/containernetworking/cni/common"
+	"visualstudio.com/containernetworking/cni/network"
 
 	"github.com/containernetworking/cni/pkg/invoke"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
@@ -98,6 +98,10 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	endpointID := args.ContainerID + "_" + networkInfo.ID
 	epInfo := cniConfig.GetEndpointInfo(endpointID, args.ContainerID)
 
+	epInfo.DNS = network.DNSInfo{
+		Servers: networkInfo.DNS.Servers,
+	}
+
 	if cniConfig.Ipam.Type != "" {
 		var result cniTypes.Result
 		var resultImpl *cniTypesImpl.Result
@@ -117,16 +121,21 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		logrus.Infof("[cni-net] IPAM plugin returned result %v.", resultImpl)
 		// Derive the subnet from allocated IP address.
 		if resultImpl.IP4 != nil {
-			epInfo.Subnet = resultImpl.IP4.IP
 			var subnetInfo = network.SubnetInfo{
 				AddressPrefix:  resultImpl.IP4.IP,
 				GatewayAddress: resultImpl.IP4.Gateway,
 			}
 			networkInfo.Subnets = append(networkInfo.Subnets, subnetInfo)
 			epInfo.IPAddress = resultImpl.IP4.IP.IP
+			epInfo.Gateway = resultImpl.IP4.Gateway
+			epInfo.Subnet = resultImpl.IP4.IP
 
 			for _, route := range resultImpl.IP4.Routes {
 				epInfo.Routes = append(epInfo.Routes, network.RouteInfo{Destination: route.Dst, Gateway: route.GW})
+			}
+
+			epInfo.DNS = network.DNSInfo{
+				Servers: resultImpl.DNS.Nameservers,
 			}
 		}
 	}
@@ -176,6 +185,11 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		logrus.Debugf("[cni-net] Creating a new Endpoint")
 	}
 
+	// Apply the Network Policy for Endpoint
+	epInfo.Policies = networkInfo.Policies
+
+	// If Network Policies exist, overwrite
+
 	epInfo, err = plugin.nm.CreateEndpoint(hnsNetworkId, epInfo)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to create endpoint, err:%v.", err)
@@ -185,6 +199,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	// Attach the endpoint. Would fail if the container is not running
 	err = epInfo.HotAttachEndpoint(args.ContainerID)
 	if err != nil {
+		logrus.Errorf("[cni-net] Failed to HotAdd endpoint %v, err:%v.", epInfo.ID, err)
 		err = plugin.nm.DeleteEndpoint(epInfo.ID)
 	}
 

@@ -6,6 +6,7 @@ package network
 import (
 	"net"
 	"strings"
+	"encoding/json"
 
 	"github.com/Microsoft/hcsshim"
 )
@@ -34,7 +35,7 @@ type RouteInfo struct {
 
 // Get HNSEndpoint from EndpoingInfo
 func (endpoint *EndpointInfo) GetHNSEndpointConfig() *hcsshim.HNSEndpoint {
-	return &hcsshim.HNSEndpoint{
+	hnsep := &hcsshim.HNSEndpoint{
 		Name:           endpoint.Name,
 		Id:             endpoint.ID,
 		VirtualNetwork: endpoint.NetworkID,
@@ -43,7 +44,11 @@ func (endpoint *EndpointInfo) GetHNSEndpointConfig() *hcsshim.HNSEndpoint {
 		MacAddress:     endpoint.MacAddress.String(),
 		GatewayAddress: endpoint.Gateway.String(),
 		IPAddress:      endpoint.IPAddress,
+    	Policies:       GetHNSEndpointPolicies(endpoint.Policies),
+
 	}
+
+	return hnsep;
 }
 
 // Get EndpointInfo from HNSEndpoint
@@ -56,6 +61,7 @@ func GetEndpointInfo(hnsEndpoint *hcsshim.HNSEndpoint) *EndpointInfo {
 		MacAddress: macAddress,
 		Gateway:    net.ParseIP(hnsEndpoint.GatewayAddress),
 		IPAddress:  hnsEndpoint.IPAddress,
+    	Policies:   GetEndpointPolicies(hnsEndpoint.Policies),
 	}
 }
 func (endpoint *EndpointInfo) HotAttachEndpoint(containerID string) error {
@@ -70,4 +76,27 @@ func (endpoint *EndpointInfo) DetachEndpoint() error {
 
 func (endpoint *EndpointInfo) HotDetachEndpoint(containerID string) error {
 	return hcsshim.HotDetachEndpoint(containerID, endpoint.ID)
+}
+
+
+// GetPolicies
+func GetEndpointPolicies(jsonPolicies []json.RawMessage) []Policy {
+	var policies []Policy
+	for _, jsonPolicy := range jsonPolicies {
+		policies = append(policies,  Policy{Type:EndpointPolicy, Data:jsonPolicy})
+	}
+
+	return policies
+}
+
+// GetHNSPolicies
+func GetHNSEndpointPolicies(policies []Policy) []json.RawMessage {
+	var jsonPolicies []json.RawMessage
+	for _, policy := range policies {
+		if policy.Type == EndpointPolicy {
+			jsonPolicies = append(jsonPolicies, policy.Data)
+		}
+	}
+
+	return jsonPolicies
 }

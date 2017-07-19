@@ -13,7 +13,6 @@ import (
 )
 
 type NetworkType string
-type Policy json.RawMessage
 
 const (
 	NAT         NetworkType = "NAT"
@@ -61,6 +60,7 @@ func (info *NetworkInfo) GetHNSNetworkConfig() *hcsshim.HNSNetwork {
 		DNSSuffix:     info.DNS.Suffix,
 		SourceMac:     "",
 		//NetworkAdapterName: info.InterfaceName,
+		Policies: GetHNSNetworkPolicies(info.Policies),
 	}
 }
 
@@ -80,7 +80,7 @@ func GetNetworkInfo(hnsNetwork *hcsshim.HNSNetwork) *NetworkInfo {
 			Suffix:  hnsNetwork.DNSSuffix,
 			Servers: strings.Split(hnsNetwork.DNSServerList, ","),
 		},
-		Policies: GetPolicies(hnsNetwork.Policies),
+		Policies: GetNetworkPolicies(hnsNetwork.Policies),
 	}
 }
 
@@ -90,7 +90,7 @@ func GetSubnetInfo(hnsSubnet *hcsshim.Subnet) SubnetInfo {
 	return SubnetInfo{
 		AddressPrefix:  *ipsubnet,
 		GatewayAddress: net.ParseIP(hnsSubnet.GatewayAddress),
-		Policies:       GetPolicies(hnsSubnet.Policies),
+		Policies:       GetNetworkPolicies(hnsSubnet.Policies),
 	}
 }
 
@@ -98,25 +98,27 @@ func (subnet *SubnetInfo) GetHNSSubnetConfig() *hcsshim.Subnet {
 	return &hcsshim.Subnet{
 		AddressPrefix:  subnet.AddressPrefix.String(),
 		GatewayAddress: subnet.GatewayAddress.String(),
-		Policies:       GetHNSPolicies(subnet.Policies),
+		Policies:       GetHNSNetworkPolicies(subnet.Policies),
 	}
 }
 
 // GetPolicies
-func GetPolicies(jsonPolicies []json.RawMessage) []Policy {
+func GetNetworkPolicies(jsonPolicies []json.RawMessage) []Policy {
 	var policies []Policy
 	for _, jsonPolicy := range jsonPolicies {
-		policies = append(policies, Policy(jsonPolicy))
+		policies = append(policies,  Policy{Type:NetworkPolicy, Data:jsonPolicy})
 	}
 
 	return policies
 }
 
 // GetHNSPolicies
-func GetHNSPolicies(policies []Policy) []json.RawMessage {
+func GetHNSNetworkPolicies(policies []Policy) []json.RawMessage {
 	var jsonPolicies []json.RawMessage
 	for _, policy := range policies {
-		jsonPolicies = append(jsonPolicies, json.RawMessage(policy))
+		if policy.Type == NetworkPolicy {
+			jsonPolicies = append(jsonPolicies, policy.Data)
+		}
 	}
 
 	return jsonPolicies

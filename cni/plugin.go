@@ -4,7 +4,7 @@
 package cni
 
 import (
-	"github.com/Microsoft/windowscontainernetworking/common"
+	"visualstudio.com/containernetworking/cni/common"
 
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniVers "github.com/containernetworking/cni/pkg/version"

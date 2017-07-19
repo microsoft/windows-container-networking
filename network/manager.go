@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/Microsoft/hcsshim"
-	"github.com/Microsoft/windowscontainernetworking/common"
 	"github.com/Sirupsen/logrus"
+	"visualstudio.com/containernetworking/cni/common"
 )
 
 type HTTPRequest string

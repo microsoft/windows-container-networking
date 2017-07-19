@@ -7,11 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 
-	network "github.com/Microsoft/windowscontainernetworking/network"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypes020 "github.com/containernetworking/cni/pkg/types/020"
+	network "visualstudio.com/containernetworking/cni/network"
 )
 
 const (
@@ -24,6 +25,11 @@ const (
 
 	Internal = "internal"
 )
+
+type KVP struct {
+	Name  string          `json:"name"`
+	Value json.RawMessage `json:"value"`
+}
 
 // NetworkConfig represents the Windows CNI plugin's network configuration.
 // Defined as per https://github.com/containernetworking/cni/blob/master/SPEC.md
@@ -41,10 +47,7 @@ type NetworkConfig struct {
 		Routes        []cniTypes.Route `json:"routes,omitempty"`
 	}
 	DNS            cniTypes.DNS `json:"dns"`
-	AdditionalArgs []struct {
-		Name  string `json:"name"`
-		Value string `json:"value"`
-	}
+	AdditionalArgs []KVP
 }
 
 type Interface struct {
@@ -139,12 +142,16 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 		ip, s, _ := net.ParseCIDR(config.Ipam.Subnet)
 		gatewayIP := ip.To4()
 		gatewayIP[3]++
+		if config.Ipam.Routes != nil && len(config.Ipam.Routes) > 0 && config.Ipam.Routes[0].GW != nil {
+			gatewayIP = config.Ipam.Routes[0].GW
+		}
 		subnet = network.SubnetInfo{
 			AddressPrefix:  *s,
 			GatewayAddress: gatewayIP,
 		}
 	}
-	return &network.NetworkInfo{
+
+	ninfo := &network.NetworkInfo{
 		ID:            config.Name,
 		Name:          config.Name,
 		Type:          network.NetworkType(config.Name),
@@ -155,6 +162,16 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 			Suffix:  config.DNS.Domain,
 		},
 	}
+	if config.AdditionalArgs != nil {
+		for _, kvp := range config.AdditionalArgs {
+			if strings.Contains(kvp.Name, "Policy") {
+				npolicy := network.Policy{Type: network.CNIPolicyType(kvp.Name), Data: kvp.Value}
+				ninfo.Policies = append(ninfo.Policies, npolicy)
+			}
+		}
+	}
+
+	return ninfo
 }
 
 // Get NetworkInfo from the NetworkConfig
