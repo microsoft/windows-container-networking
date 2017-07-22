@@ -81,6 +81,11 @@ func (plugin *netPlugin) Stop() {
 //
 
 // Add handles CNI add commands.
+// args.ContainerID - ID of the container for which network endpoint is to be added
+// Netns - Network mode requested.
+//		   none - would mean no network sharing
+//         container:<containerId> = would mean share the network of the containerId
+// IfName - Not User
 func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	logrus.Debugf("[cni-net] Processing ADD command with args {ContainerID:%v Netns:%v IfName:%v Args:%v Path:%v}.",
 		args.ContainerID, args.Netns, args.IfName, args.Args, args.Path)
@@ -95,9 +100,8 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
 	// Convert cniConfig to NetworkInfo
 	networkInfo := cniConfig.GetNetworkInfo()
-	endpointID := args.ContainerID + "_" + networkInfo.ID
-	epInfo := cniConfig.GetEndpointInfo(endpointID, args.ContainerID)
-
+	//endpointID := args.ContainerID + "_" + networkInfo.ID
+	epInfo := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, args.Netns)
 	epInfo.DNS = network.DNSInfo{
 		Servers: networkInfo.DNS.Servers,
 	}
@@ -175,10 +179,22 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 			// An endpoint already exists in the same network.
 			// Do not allow creation of more endpoints on same network
 
+			// If netNs refers to this request for shared endpoint creation,
+			// call into HNS to attach this endpoint to the new container
+			// This would make sure that platform takes care of replicating the
+			// required registry keys to the new container, like DNS etc
+			if args.Netns != "none" {
+				err = plugin.nm.AttachEndpointToContainer(epInfo.Name, epInfo.ContainerID)
+				if err != nil {
+					logrus.Errorf("[cni-net] Failed to attach endpoint to container [%v], err:%v.", epInfo, err)
+				}
+			}
+
 			//result := cni.GetResult(nwConfig, hnsEndpoint)
 			result := cni.GetResult020(nwConfig, hnsEndpoint)
 			result.Print()
 			logrus.Debugf(result.String())
+
 			return nil
 		}
 	} else {
@@ -223,23 +239,32 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	}
 
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
-	endpointID := args.ContainerID + "_" + cniConfig.Name
-
-	endpointInfo, err := plugin.nm.GetEndpointByName(endpointID)
+	// Convert cniConfig to NetworkInfo
+	networkInfo := cniConfig.GetNetworkInfo()
+	//endpointID := args.ContainerID + "_" + networkInfo.ID
+	epInfo := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, args.Netns)
+	endpointInfo, err := plugin.nm.GetEndpointByName(epInfo.Name)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to find endpoint, err:%v.", err)
 		return nil
 	}
 
-	endpointInfo.HotDetachEndpoint(args.ContainerID)
+	if args.Netns != "none" {
+		// Shared endpoint removal. Do not remove the endpoint.
+		err = plugin.nm.DetachEndpointFromContainer(epInfo.Name, epInfo.ContainerID)
+		if err != nil {
+			logrus.Errorf("[cni-net] Failed to attach endpoint to container [%v], err:%v.", epInfo, err)
+		}
+	} else {
+		endpointInfo.HotDetachEndpoint(args.ContainerID)
 
-	// Delete the endpoint.
-	err = plugin.nm.DeleteEndpoint(endpointInfo.ID)
-	if err != nil {
-		logrus.Errorf("[cni-net] Failed to delete endpoint, err:%v.", err)
-		return nil
+		// Delete the endpoint.
+		err = plugin.nm.DeleteEndpoint(endpointInfo.ID)
+		if err != nil {
+			logrus.Errorf("[cni-net] Failed to delete endpoint, err:%v.", err)
+			return nil
+		}
+		logrus.Debugf("[cni-net] DEL succeeded.")
 	}
-	logrus.Debugf("[cni-net] DEL succeeded.")
-
 	return nil
 }

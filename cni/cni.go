@@ -174,15 +174,23 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 	return ninfo
 }
 
-// Get NetworkInfo from the NetworkConfig
-func (config *NetworkConfig) GetEndpointInfo(endpointId string, containerID string) *network.EndpointInfo {
+// GetEndpointInfo constructs endpoint info using endpoint id, containerid and netns
+func (config *NetworkConfig) GetEndpointInfo(networkinfo *network.NetworkInfo, containerID string, netNs string) *network.EndpointInfo {
+	containerIDToUse := containerID
+	if netNs != "none" {
+		splits := strings.Split(netNs, ":")
+		if len(splits) == 2 {
+			containerIDToUse = splits[1]
+		}
+	}
 	return &network.EndpointInfo{
-		Name:        endpointId,
+		Name:        containerIDToUse + "_" + networkinfo.ID,
+		NetworkID:   networkinfo.ID,
 		ContainerID: containerID,
 	}
 }
 
-//GetResult
+// GetResult gets the result object
 func GetResult(network *network.NetworkInfo, endpoint *network.EndpointInfo) Result {
 	var iFace = GetInterface(endpoint)
 	var ip = GetIP(network, endpoint)
@@ -193,6 +201,7 @@ func GetResult(network *network.NetworkInfo, endpoint *network.EndpointInfo) Res
 	}
 }
 
+// GetResult020 gets the v020 result object
 func GetResult020(network *network.NetworkInfo, endpoint *network.EndpointInfo) cniTypes020.Result {
 	var ip = GetIP(network, endpoint)
 	var ip4 = &cniTypes020.IPConfig{
@@ -204,7 +213,7 @@ func GetResult020(network *network.NetworkInfo, endpoint *network.EndpointInfo) 
 	}
 }
 
-// GetIP
+// GetIP returns the IP for the corresponding endpoint
 func GetIP(network *network.NetworkInfo, endpoint *network.EndpointInfo) IP {
 	address := network.Subnets[0].AddressPrefix
 	address.IP = endpoint.IPAddress
@@ -216,7 +225,7 @@ func GetIP(network *network.NetworkInfo, endpoint *network.EndpointInfo) IP {
 	}
 }
 
-// GetInterface
+// GetInterface returns the interface for endpoint
 func GetInterface(endpoint *network.EndpointInfo) Interface {
 	return Interface{
 		Name:       endpoint.Name,

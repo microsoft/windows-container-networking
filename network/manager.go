@@ -45,6 +45,8 @@ type Manager interface {
 	DeleteEndpoint(endpointID string) error
 	GetEndpoint(endpointID string) (*EndpointInfo, error)
 	GetEndpointByName(endpointName string) (*EndpointInfo, error)
+	AttachEndpointToContainer(endpointName string, containerID string) error
+	DetachEndpointFromContainer(endpointName string, containerID string) error
 }
 
 // Creates a NewManager ....
@@ -181,4 +183,30 @@ func (nm *networkManager) GetEndpointByName(endpointName string) (*EndpointInfo,
 	}
 
 	return GetEndpointInfo(hnsEndpoint), nil
+}
+
+// GetNetworkInfo returns information about the given network.
+func (nm *networkManager) AttachEndpointToContainer(endpointName string, containerID string) error {
+	nm.Lock()
+	defer nm.Unlock()
+
+	hnsEndpoint, err := hcsshim.GetHNSEndpointByName(endpointName)
+	if err != nil {
+		return err
+	}
+	// Compartment is optional
+	return hnsEndpoint.ContainerAttach(containerID, 0)
+}
+
+// GetNetworkInfo returns information about the given network.
+func (nm *networkManager) DetachEndpointFromContainer(endpointName string, containerID string) error {
+	nm.Lock()
+	defer nm.Unlock()
+
+	hnsEndpoint, err := hcsshim.GetHNSEndpointByName(endpointName)
+	if err != nil {
+		return err
+	}
+	// Compartment is optional
+	return hnsEndpoint.ContainerDetach(containerID)
 }
