@@ -177,17 +177,25 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 // GetEndpointInfo constructs endpoint info using endpoint id, containerid and netns
 func (config *NetworkConfig) GetEndpointInfo(networkinfo *network.NetworkInfo, containerID string, netNs string) *network.EndpointInfo {
 	containerIDToUse := containerID
-	if netNs != "none" {
+	if netNs != "" {
 		splits := strings.Split(netNs, ":")
 		if len(splits) == 2 {
 			containerIDToUse = splits[1]
 		}
 	}
-	return &network.EndpointInfo{
+	epInfo := &network.EndpointInfo{
 		Name:        containerIDToUse + "_" + networkinfo.ID,
 		NetworkID:   networkinfo.ID,
 		ContainerID: containerID,
 	}
+
+	epInfo.DNS = network.DNSInfo{
+		Servers: networkinfo.DNS.Servers,
+	}
+
+	epInfo.Subnet = networkinfo.Subnets[0].AddressPrefix
+	epInfo.Gateway = networkinfo.Subnets[0].GatewayAddress
+	return epInfo
 }
 
 // GetResult gets the result object

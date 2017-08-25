@@ -6,7 +6,7 @@ package common
 import (
 	"net"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // LogNetworkInterfaces logs the host's network interfaces in the default namespace.

@@ -6,7 +6,7 @@ package main
 import (
 	"os"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"visualstudio.com/containernetworking/cni/cni"
 	"visualstudio.com/containernetworking/cni/cni/network"
 	"visualstudio.com/containernetworking/cni/common"

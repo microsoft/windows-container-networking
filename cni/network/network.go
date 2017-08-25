@@ -4,7 +4,7 @@
 package network
 
 import (
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"visualstudio.com/containernetworking/cni/cni"
 	"visualstudio.com/containernetworking/cni/common"
 	"visualstudio.com/containernetworking/cni/network"
@@ -100,11 +100,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
 	// Convert cniConfig to NetworkInfo
 	networkInfo := cniConfig.GetNetworkInfo()
-	//endpointID := args.ContainerID + "_" + networkInfo.ID
 	epInfo := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, args.Netns)
-	epInfo.DNS = network.DNSInfo{
-		Servers: networkInfo.DNS.Servers,
-	}
 
 	if cniConfig.Ipam.Type != "" {
 		var result cniTypes.Result
@@ -137,10 +133,12 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 			for _, route := range resultImpl.IP4.Routes {
 				epInfo.Routes = append(epInfo.Routes, network.RouteInfo{Destination: route.Dst, Gateway: route.GW})
 			}
-
-			epInfo.DNS = network.DNSInfo{
-				Servers: resultImpl.DNS.Nameservers,
-			}
+			/*
+				// TODO : This should override the global settings.
+					epInfo.DNS = network.DNSInfo{
+						Servers: resultImpl.DNS.Nameservers,
+					}
+			*/
 		}
 	}
 
