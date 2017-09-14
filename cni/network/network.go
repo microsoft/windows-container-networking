@@ -182,9 +182,11 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 			// This would make sure that platform takes care of replicating the
 			// required registry keys to the new container, like DNS etc
 			if args.Netns != "none" {
-				err = plugin.nm.AttachEndpointToContainer(epInfo.Name, epInfo.ContainerID)
+				// Attach the endpoint. Would fail if the container is not running
+				err = hnsEndpoint.HotAttachEndpoint(epInfo.ContainerID)
+				//err = plugin.nm.AttachEndpointToContainer(epInfo.Name, epInfo.ContainerID)
 				if err != nil {
-					logrus.Errorf("[cni-net] Failed to attach endpoint to container [%v], err:%v.", epInfo, err)
+					logrus.Errorf("[cni-net] Failed to hot attach shared endpoint to container [%v], err:%v.", epInfo, err)
 				}
 			}
 
