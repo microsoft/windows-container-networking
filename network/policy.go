@@ -20,3 +20,18 @@ type Policy struct {
 	Data json.RawMessage
 }
 
+// HNS port mapping policy is like so:
+//
+// "Policies": [{
+//     "Type": "NAT",
+//     "ExternalPort": 8080,
+//     "InternalPort": 80,
+//     "Protocol": "tcp"
+// }]
+type NatPolicy struct {
+	Type         string
+	ExternalPort int
+	InternalPort int
+	Protocol     string
+}
+

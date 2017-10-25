@@ -100,7 +100,8 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
 	// Convert cniConfig to NetworkInfo
 	networkInfo := cniConfig.GetNetworkInfo()
-	epInfo := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, args.Netns)
+	epInfo := cniConfig.GetEndpointInfo(
+		networkInfo, &cniConfig.RuntimeConfig, args.ContainerID, args.Netns)
 
 	if cniConfig.Ipam.Type != "" {
 		var result cniTypes.Result
@@ -152,7 +153,6 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		logrus.Infof("[cni-net] Creating network.")
 
 		networkInfo.InterfaceName = args.IfName
-
 		nwConfig, err = plugin.nm.CreateNetwork(networkInfo)
 		if err != nil {
 			logrus.Errorf("[cni-net] Failed to create network, err:%v.", err)
@@ -160,11 +160,10 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		}
 
 		hnsNetworkId = nwConfig.ID
-
 		logrus.Debugf("[cni-net] Created network %v with subnet %v.", hnsNetworkId, cniConfig.Ipam.Subnet)
 	} else {
-		hnsNetworkId = nwConfig.ID
 		// Network already exists.
+		hnsNetworkId = nwConfig.ID
 		logrus.Debugf("[cni-net] Found network %v with subnet %v.", hnsNetworkId, nwConfig.Subnets)
 	}
 
@@ -202,9 +201,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	}
 
 	// Apply the Network Policy for Endpoint
-	epInfo.Policies = networkInfo.Policies
-
-	// If Network Policies exist, overwrite
+	epInfo.Policies = append(epInfo.Policies, networkInfo.Policies...)
 
 	epInfo, err = plugin.nm.CreateEndpoint(hnsNetworkId, epInfo)
 	if err != nil {
@@ -242,7 +239,8 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	// Convert cniConfig to NetworkInfo
 	networkInfo := cniConfig.GetNetworkInfo()
 	//endpointID := args.ContainerID + "_" + networkInfo.ID
-	epInfo := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, args.Netns)
+	epInfo := cniConfig.GetEndpointInfo(
+		networkInfo, &cniConfig.RuntimeConfig, args.ContainerID, args.Netns)
 	endpointInfo, err := plugin.nm.GetEndpointByName(epInfo.Name)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to find endpoint, err:%v.", err)

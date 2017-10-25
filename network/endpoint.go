@@ -33,7 +33,7 @@ type RouteInfo struct {
 	Gateway     net.IP
 }
 
-// Get HNSEndpoint from EndpoingInfo
+// Get HNSEndpoint from EndpointInfo
 func (endpoint *EndpointInfo) GetHNSEndpointConfig() *hcsshim.HNSEndpoint {
 	hnsep := &hcsshim.HNSEndpoint{
 		Name:           endpoint.Name,
@@ -44,8 +44,7 @@ func (endpoint *EndpointInfo) GetHNSEndpointConfig() *hcsshim.HNSEndpoint {
 		MacAddress:     endpoint.MacAddress.String(),
 		GatewayAddress: endpoint.Gateway.String(),
 		IPAddress:      endpoint.IPAddress,
-    	Policies:       GetHNSEndpointPolicies(endpoint.Policies),
-
+		Policies:       GetHNSEndpointPolicies(endpoint.Policies),
 	}
 
 	return hnsep;
@@ -61,7 +60,7 @@ func GetEndpointInfo(hnsEndpoint *hcsshim.HNSEndpoint) *EndpointInfo {
 		MacAddress: macAddress,
 		Gateway:    net.ParseIP(hnsEndpoint.GatewayAddress),
 		IPAddress:  hnsEndpoint.IPAddress,
-    	Policies:   GetEndpointPolicies(hnsEndpoint.Policies),
+		Policies:   GetEndpointPolicies(hnsEndpoint.Policies),
 	}
 }
 func (endpoint *EndpointInfo) HotAttachEndpoint(containerID string) error {
