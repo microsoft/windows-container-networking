@@ -99,3 +99,17 @@ func GetHNSEndpointPolicies(policies []Policy) []json.RawMessage {
 
 	return jsonPolicies
 }
+
+func GetHNSNatPolicy(externalPort int, internalPort int, protocol string) Policy {
+	rawPolicy, _ := json.Marshal(&hcsshim.NatPolicy{
+		Type:         "NAT",
+		ExternalPort: uint16(externalPort),
+		InternalPort: uint16(internalPort),
+		Protocol:     protocol,
+	})
+
+	return Policy{
+		Type: EndpointPolicy,
+		Data: rawPolicy,
+	}
+}

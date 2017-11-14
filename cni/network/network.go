@@ -101,7 +101,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	// Convert cniConfig to NetworkInfo
 	networkInfo := cniConfig.GetNetworkInfo()
 	epInfo := cniConfig.GetEndpointInfo(
-		networkInfo, &cniConfig.RuntimeConfig, args.ContainerID, args.Netns)
+		networkInfo, args.ContainerID, args.Netns)
 
 	if cniConfig.Ipam.Type != "" {
 		var result cniTypes.Result
@@ -240,7 +240,7 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	networkInfo := cniConfig.GetNetworkInfo()
 	//endpointID := args.ContainerID + "_" + networkInfo.ID
 	epInfo := cniConfig.GetEndpointInfo(
-		networkInfo, &cniConfig.RuntimeConfig, args.ContainerID, args.Netns)
+		networkInfo, args.ContainerID, args.Netns)
 	endpointInfo, err := plugin.nm.GetEndpointByName(epInfo.Name)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to find endpoint, err:%v.", err)

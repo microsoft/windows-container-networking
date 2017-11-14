@@ -189,7 +189,7 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 
 // GetEndpointInfo constructs endpoint info using endpoint id, containerid and netns
 func (config *NetworkConfig) GetEndpointInfo(
-	networkinfo *network.NetworkInfo, runtimeConf *RuntimeConfig,
+	networkinfo *network.NetworkInfo,
 	containerID string, netNs string) *network.EndpointInfo {
 	containerIDToUse := containerID
 	if netNs != "" {
@@ -211,20 +211,12 @@ func (config *NetworkConfig) GetEndpointInfo(
 	epInfo.Subnet = networkinfo.Subnets[0].AddressPrefix
 	epInfo.Gateway = networkinfo.Subnets[0].GatewayAddress
 
+	runtimeConf := config.RuntimeConfig
 	logrus.Debugf("Parsing port mappings from %+v", runtimeConf.PortMappings)
 	for _, mapping := range runtimeConf.PortMappings {
-		rawPolicy, _ := json.Marshal(&network.NatPolicy{
-			Type:         "NAT",
-			ExternalPort: mapping.HostPort,
-			InternalPort: mapping.ContainerPort,
-			Protocol:     mapping.Protocol,
-		})
-
-		logrus.Debugf("Created raw policy from mapping: %+v --- %+v", mapping, rawPolicy)
-		epInfo.Policies = append(epInfo.Policies, network.Policy{
-			Type: network.EndpointPolicy,
-			Data: rawPolicy,
-		})
+		natPolicy := network.GetHNSNatPolicy(mapping.HostPort, mapping.ContainerPort, mapping.Protocol)
+		logrus.Debugf("Created raw policy from mapping: %+v --- %+v", mapping, natPolicy)
+		epInfo.Policies = append(epInfo.Policies, natPolicy)
 	}
 
 	return epInfo
