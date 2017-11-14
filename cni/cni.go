@@ -9,6 +9,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypes020 "github.com/containernetworking/cni/pkg/types/020"
@@ -31,6 +32,17 @@ type KVP struct {
 	Value json.RawMessage `json:"value"`
 }
 
+type PortMapping struct {
+	HostPort      int    `json:"hostPort"`
+	ContainerPort int    `json:"containerPort"`
+	Protocol      string `json:"protocol"`
+	HostIp        string `json:"hostIP,omitempty"`
+}
+
+type RuntimeConfig struct {
+	PortMappings []PortMapping `json:"portMappings,omitempty"`
+}
+
 // NetworkConfig represents the Windows CNI plugin's network configuration.
 // Defined as per https://github.com/containernetworking/cni/blob/master/SPEC.md
 type NetworkConfig struct {
@@ -46,7 +58,8 @@ type NetworkConfig struct {
 		QueryInterval string           `json:"queryInterval,omitempty"`
 		Routes        []cniTypes.Route `json:"routes,omitempty"`
 	}
-	DNS            cniTypes.DNS `json:"dns"`
+	DNS            cniTypes.DNS  `json:"dns"`
+	RuntimeConfig  RuntimeConfig `json:"runtimeConfig"`
 	AdditionalArgs []KVP
 }
 
@@ -175,7 +188,9 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 }
 
 // GetEndpointInfo constructs endpoint info using endpoint id, containerid and netns
-func (config *NetworkConfig) GetEndpointInfo(networkinfo *network.NetworkInfo, containerID string, netNs string) *network.EndpointInfo {
+func (config *NetworkConfig) GetEndpointInfo(
+	networkinfo *network.NetworkInfo, runtimeConf *RuntimeConfig,
+	containerID string, netNs string) *network.EndpointInfo {
 	containerIDToUse := containerID
 	if netNs != "" {
 		splits := strings.Split(netNs, ":")
@@ -195,6 +210,23 @@ func (config *NetworkConfig) GetEndpointInfo(networkinfo *network.NetworkInfo, c
 
 	epInfo.Subnet = networkinfo.Subnets[0].AddressPrefix
 	epInfo.Gateway = networkinfo.Subnets[0].GatewayAddress
+
+	logrus.Debugf("Parsing port mappings from %+v", runtimeConf.PortMappings)
+	for _, mapping := range runtimeConf.PortMappings {
+		rawPolicy, _ := json.Marshal(&network.NatPolicy{
+			Type:         "NAT",
+			ExternalPort: mapping.HostPort,
+			InternalPort: mapping.ContainerPort,
+			Protocol:     mapping.Protocol,
+		})
+
+		logrus.Debugf("Created raw policy from mapping: %+v --- %+v", mapping, rawPolicy)
+		epInfo.Policies = append(epInfo.Policies, network.Policy{
+			Type: network.EndpointPolicy,
+			Data: rawPolicy,
+		})
+	}
+
 	return epInfo
 }
 
