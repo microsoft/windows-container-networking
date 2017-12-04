@@ -9,10 +9,10 @@ import (
 	"net"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypes020 "github.com/containernetworking/cni/pkg/types/020"
+	"github.com/sirupsen/logrus"
 	network "visualstudio.com/containernetworking/cni/network"
 )
 
@@ -172,7 +172,7 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 		InterfaceName: "",
 		DNS: network.DNSInfo{
 			Servers: config.DNS.Nameservers,
-			Suffix:  config.DNS.Domain,
+			Suffix:  strings.Join(config.DNS.Search, ","),
 		},
 	}
 	if config.AdditionalArgs != nil {
@@ -206,6 +206,7 @@ func (config *NetworkConfig) GetEndpointInfo(
 
 	epInfo.DNS = network.DNSInfo{
 		Servers: networkinfo.DNS.Servers,
+		Suffix:  networkinfo.DNS.Suffix,
 	}
 
 	epInfo.Subnet = networkinfo.Subnets[0].AddressPrefix
