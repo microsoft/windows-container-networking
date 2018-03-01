@@ -90,6 +90,12 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	logrus.Debugf("[cni-net] Processing ADD command with args {ContainerID:%v Netns:%v IfName:%v Args:%v Path:%v}.",
 		args.ContainerID, args.Netns, args.IfName, args.Args, args.Path)
 
+	podConfig, err := cni.ParseCniArgs(args.Args)
+	k8sNamespace := "default"
+	if err == nil {
+		k8sNamespace = string(podConfig.K8S_POD_NAMESPACE)
+	}
+
 	// Parse network configuration from stdin.
 	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
 	if err != nil {
@@ -101,7 +107,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	// Convert cniConfig to NetworkInfo
 	networkInfo := cniConfig.GetNetworkInfo()
 	epInfo := cniConfig.GetEndpointInfo(
-		networkInfo, args.ContainerID, args.Netns)
+		networkInfo, args.ContainerID, args.Netns, k8sNamespace)
 
 	if cniConfig.Ipam.Type != "" {
 		var result cniTypes.Result
@@ -183,7 +189,6 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 			if args.Netns != "none" {
 				// Attach the endpoint. Would fail if the container is not running
 				err = hnsEndpoint.HotAttachEndpoint(epInfo.ContainerID)
-				//err = plugin.nm.AttachEndpointToContainer(epInfo.Name, epInfo.ContainerID)
 				if err != nil {
 					logrus.Errorf("[cni-net] Failed to hot attach shared endpoint to container [%v], err:%v.", epInfo, err)
 				}
@@ -228,6 +233,11 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	logrus.Debugf("[cni-net] Processing DEL command with args {ContainerID:%v Netns:%v IfName:%v Args:%v Path:%v}.",
 		args.ContainerID, args.Netns, args.IfName, args.Args, args.Path)
 
+	podConfig, err := cni.ParseCniArgs(args.Args)
+	k8sNamespace := "default"
+	if err == nil {
+		k8sNamespace = string(podConfig.K8S_POD_NAMESPACE)
+	}
 	// Parse network configuration from stdin.
 	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
 	if err != nil {
@@ -240,7 +250,7 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	networkInfo := cniConfig.GetNetworkInfo()
 	//endpointID := args.ContainerID + "_" + networkInfo.ID
 	epInfo := cniConfig.GetEndpointInfo(
-		networkInfo, args.ContainerID, args.Netns)
+		networkInfo, args.ContainerID, args.Netns, k8sNamespace)
 	endpointInfo, err := plugin.nm.GetEndpointByName(epInfo.Name)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to find endpoint, err:%v.", err)

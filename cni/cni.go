@@ -84,6 +84,13 @@ type Result struct {
 	Routes     []cniTypes.Route `json:"routes,omitempty"`
 }
 
+type K8SPodEnvArgs struct {
+	cniTypes.CommonArgs
+	K8S_POD_NAMESPACE          cniTypes.UnmarshallableString `json:"K8S_POD_NAMESPACE,omitempty"`
+	K8S_POD_NAME               cniTypes.UnmarshallableString `json:"K8S_POD_NAME,omitempty"`
+	K8S_POD_INFRA_CONTAINER_ID cniTypes.UnmarshallableString `json:"K8S_POD_INFRA_CONTAINER_ID,omitempty"`
+}
+
 func (r *Result) Print() {
 	fmt.Printf(r.String())
 }
@@ -142,6 +149,17 @@ func ParseNetworkConfig(b []byte) (*NetworkConfig, error) {
 	return &config, nil
 }
 
+// ParseCniArgs
+func ParseCniArgs(args string) (*K8SPodEnvArgs, error) {
+	podConfig := K8SPodEnvArgs{}
+	err := cniTypes.LoadArgs(args, &podConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &podConfig, nil
+}
+
 // Serialize marshals a network configuration to bytes.
 func (config *NetworkConfig) Serialize() []byte {
 	bytes, _ := json.Marshal(config)
@@ -190,7 +208,7 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 // GetEndpointInfo constructs endpoint info using endpoint id, containerid and netns
 func (config *NetworkConfig) GetEndpointInfo(
 	networkinfo *network.NetworkInfo,
-	containerID string, netNs string) *network.EndpointInfo {
+	containerID string, netNs string, podK8sNamespace string) *network.EndpointInfo {
 	containerIDToUse := containerID
 	if netNs != "" {
 		splits := strings.Split(netNs, ":")
@@ -206,7 +224,7 @@ func (config *NetworkConfig) GetEndpointInfo(
 
 	epInfo.DNS = network.DNSInfo{
 		Servers: networkinfo.DNS.Servers,
-		Suffix:  networkinfo.DNS.Suffix,
+		Suffix:  podK8sNamespace + "." + networkinfo.DNS.Suffix,
 	}
 
 	epInfo.Subnet = networkinfo.Subnets[0].AddressPrefix
