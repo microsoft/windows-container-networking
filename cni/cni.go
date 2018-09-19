@@ -210,15 +210,10 @@ func (config *NetworkConfig) GetEndpointInfo(
 	networkinfo *network.NetworkInfo,
 	containerID string, netNs string, podK8sNamespace string) *network.EndpointInfo {
 	containerIDToUse := containerID
-	if netNs != "" {
-		splits := strings.Split(netNs, ":")
-		if len(splits) == 2 {
-			containerIDToUse = splits[1]
-		}
-	}
 	epInfo := &network.EndpointInfo{
 		Name:        containerIDToUse + "_" + networkinfo.ID,
 		NetworkID:   networkinfo.ID,
+		NamespaceID: netNs,
 		ContainerID: containerID,
 	}
 
@@ -233,9 +228,9 @@ func (config *NetworkConfig) GetEndpointInfo(
 	runtimeConf := config.RuntimeConfig
 	logrus.Debugf("Parsing port mappings from %+v", runtimeConf.PortMappings)
 	for _, mapping := range runtimeConf.PortMappings {
-		natPolicy := network.GetHNSNatPolicy(mapping.HostPort, mapping.ContainerPort, mapping.Protocol)
-		logrus.Debugf("Created raw policy from mapping: %+v --- %+v", mapping, natPolicy)
-		epInfo.Policies = append(epInfo.Policies, natPolicy)
+		policy := network.GetPortMappingPolicy(mapping.HostPort, mapping.ContainerPort, mapping.Protocol)
+		logrus.Debugf("Created raw policy from mapping: %+v --- %+v", mapping, policy)
+		epInfo.Policies = append(epInfo.Policies, policy)
 	}
 
 	return epInfo

@@ -9,19 +9,7 @@ import (
 	"time"
 
 	"github.com/Microsoft/hcsshim"
-	"github.com/sirupsen/logrus"
 	"visualstudio.com/containernetworking/cni/common"
-)
-
-type HTTPRequest string
-
-const (
-	// GET http request
-	GET HTTPRequest = "GET"
-	// POST
-	POST HTTPRequest = "POST"
-	// DELETE
-	DELETE HTTPRequest = "DELETE"
 )
 
 // NetworkManager manages the set of container networking resources.
@@ -35,25 +23,21 @@ type networkManager struct {
 type Manager interface {
 	Initialize(config *common.PluginConfig) error
 	Uninitialize()
-
+	// Network
 	CreateNetwork(config *NetworkInfo) (*NetworkInfo, error)
 	DeleteNetwork(networkID string) error
 	GetNetwork(networkID string) (*NetworkInfo, error)
 	GetNetworkByName(networkName string) (*NetworkInfo, error)
-
+	// Endpoint
 	CreateEndpoint(networkID string, epInfo *EndpointInfo) (*EndpointInfo, error)
 	DeleteEndpoint(endpointID string) error
 	GetEndpoint(endpointID string) (*EndpointInfo, error)
 	GetEndpointByName(endpointName string) (*EndpointInfo, error)
-	AttachEndpointToContainer(endpointName string, containerID string) error
-	DetachEndpointFromContainer(endpointName string, containerID string) error
 }
 
-// Creates a NewManager ....
+// NewManager creates a new networkManager.
 func NewManager() (Manager, error) {
-	nm := &networkManager{}
-
-	return nm, nil
+	return &networkManager{}, nil
 }
 
 // Initialize configures network manager.
@@ -67,14 +51,25 @@ func (nm *networkManager) Uninitialize() {
 }
 
 //
-// NetworkManager API
-//
+// NetworkManager API Network Methods
 //
 
 // CreateNetwork creates a new container network.
 func (nm *networkManager) CreateNetwork(config *NetworkInfo) (*NetworkInfo, error) {
 	nm.Lock()
 	defer nm.Unlock()
+
+	// TODO: RS5 at release does not process V2 Network Schema, using V1 for now.
+	/*
+		hcnNetworkConfig := config.GetHostComputeNetworkConfig()
+
+		hcnNetwork, err := hcnNetworkConfig.Create()
+		if err != nil {
+			return nil, err
+		}
+
+		return GetNetworkInfoFromHostComputeNetwork(hcnNetwork), err
+	*/
 
 	hnsNetworkConfig := config.GetHNSNetworkConfig()
 
@@ -84,12 +79,11 @@ func (nm *networkManager) CreateNetwork(config *NetworkInfo) (*NetworkInfo, erro
 	}
 
 	configuration := string(jsonString)
-	hnsnetwork, err := hcsshim.HNSNetworkRequest(string(POST), "", configuration)
+	hnsnetwork, err := hcsshim.HNSNetworkRequest("POST", "", configuration)
 	if err != nil {
 		return nil, err
 	}
 
-	// Update the ID of the
 	return GetNetworkInfo(hnsnetwork), err
 }
 
@@ -98,33 +92,61 @@ func (nm *networkManager) DeleteNetwork(networkID string) error {
 	nm.Lock()
 	defer nm.Unlock()
 
-	_, err := hcsshim.HNSNetworkRequest(string(DELETE), networkID, "")
-	if err != nil {
-		return err
-	}
-	return nil
+	// TODO: RS5 at release does not process V2 Network Schema, using V1 for now.
+	/*
+		hcnNetwork, err := hcn.GetNetworkByID(networkID)
+		if err != nil {
+			return err
+		}
+		_, err = hcnNetwork.Delete()
+		if err != nil {
+			return err
+		}
+
+		return nil
+	*/
+
+	_, err := hcsshim.HNSNetworkRequest("DELETE", networkID, "")
+	return err
 }
 
-// GetNetworkInfo returns information about the given network.
+// GetNetwork returns the network matching the Id.
 func (nm *networkManager) GetNetwork(networkID string) (*NetworkInfo, error) {
 	nm.Lock()
 	defer nm.Unlock()
 
-	hnsresponse, err := hcsshim.HNSNetworkRequest(string(GET), networkID, "")
+	// TODO: RS5 at release does not process V2 Network Schema, using V1 for now.
+	/*
+		hcnNetwork, err := hcn.GetNetworkByID(networkID)
+		if err != nil {
+			return nil, err
+		}
+
+		return GetNetworkInfoFromHostComputeNetwork(hcnNetwork), nil
+	*/
+
+	hnsNetwork, err := hcsshim.GetHNSNetworkByID(networkID)
 	if err != nil {
 		return nil, err
 	}
 
-	jsonResponse, err := json.Marshal(hnsresponse)
-	logrus.Debugf("HNSNetwork GET Response=%v", string(jsonResponse))
-
-	return GetNetworkInfo(hnsresponse), nil
+	return GetNetworkInfo(hnsNetwork), nil
 }
 
-// GetNetworkInfo returns information about the given network.
+// GetNetworkByName returns the network matching the Name.
 func (nm *networkManager) GetNetworkByName(networkName string) (*NetworkInfo, error) {
 	nm.Lock()
 	defer nm.Unlock()
+
+	// TODO: RS5 at release does not process V2 Network Schema, using V1 for now.
+	/*
+		hcnNetwork, err := hcn.GetNetworkByName(networkName)
+		if err != nil {
+			return nil, err
+		}
+
+		return GetNetworkInfoFromHostComputeNetwork(hcnNetwork), nil
+	*/
 
 	hnsNetwork, err := hcsshim.GetHNSNetworkByName(networkName)
 	if err != nil {
@@ -134,10 +156,26 @@ func (nm *networkManager) GetNetworkByName(networkName string) (*NetworkInfo, er
 	return GetNetworkInfo(hnsNetwork), nil
 }
 
-// CreateEndpoint creates a new container endpoint & connects it to container
+//
+// NetworkManager API Endpoint Methods
+//
+
+// CreateEndpoint creates a new container endpoint.
 func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo) (*EndpointInfo, error) {
 	nm.Lock()
 	defer nm.Unlock()
+
+	// TODO: RS5 at release does not process V2 Endoiunt Schema, using V1 for now.
+	/*
+		epInfo.NetworkID = networkID
+		hcnEndpointConfig := epInfo.GetHostComputeEndpoint()
+		hcnEndpoint, err := hcnEndpointConfig.Create()
+		if err != nil {
+			return nil, err
+		}
+		return GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint), err
+	*/
+
 	epInfo.NetworkID = networkID
 	hnsEndpointConfig := epInfo.GetHNSEndpointConfig()
 	hnsendpoint, err := hnsEndpointConfig.Create()
@@ -147,37 +185,45 @@ func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo)
 	return GetEndpointInfo(hnsendpoint), err
 }
 
-// DeleteEndpoint deletes an existing container endpoint, after disconnecting from container
+// DeleteEndpoint deletes an existing container endpoint.
 func (nm *networkManager) DeleteEndpoint(endpointID string) error {
 	nm.Lock()
 	defer nm.Unlock()
 
-	_, err := hcsshim.HNSEndpointRequest(string(DELETE), endpointID, "")
+	// TODO: RS5 at release does not process V2 Endoiunt Schema, using V1 for now.
+	/*
+		hcnEndpoint, err := hcn.GetEndpointByID(endpointID)
+		if err != nil {
+			return err
+		}
+		_, err = hcnEndpoint.Delete()
+		if err != nil {
+			return err
+		}
+
+		return nil
+	*/
+
+	_, err := hcsshim.HNSEndpointRequest("DELETE", endpointID, "")
 	return err
 }
 
-// GetEndpointInfo returns information about the given endpoint.
+// GetEndpoint returns the endpoint matching the Id.
 func (nm *networkManager) GetEndpoint(endpointID string) (*EndpointInfo, error) {
 	nm.Lock()
 	defer nm.Unlock()
 
-	hnsresponse, err := hcsshim.HNSEndpointRequest(string(GET), endpointID, "")
-	if err != nil {
-		return nil, err
-	}
+	// TODO: RS5 at release does not process V2 Endoiunt Schema, using V1 for now.
+	/*
+		hcnEndpoint, err := hcn.GetEndpointByID(endpointID)
+		if err != nil {
+			return nil, err
+		}
 
-	jsonResponse, err := json.Marshal(hnsresponse)
-	logrus.Debugf("HNSEndpoint DELETE Response=%v", string(jsonResponse))
+		return GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint), nil
+	*/
 
-	return GetEndpointInfo(hnsresponse), nil
-}
-
-// GetNetworkInfo returns information about the given network.
-func (nm *networkManager) GetEndpointByName(endpointName string) (*EndpointInfo, error) {
-	nm.Lock()
-	defer nm.Unlock()
-
-	hnsEndpoint, err := hcsshim.GetHNSEndpointByName(endpointName)
+	hnsEndpoint, err := hcsshim.GetHNSEndpointByID(endpointID)
 	if err != nil {
 		return nil, err
 	}
@@ -185,28 +231,25 @@ func (nm *networkManager) GetEndpointByName(endpointName string) (*EndpointInfo,
 	return GetEndpointInfo(hnsEndpoint), nil
 }
 
-// GetNetworkInfo returns information about the given network.
-func (nm *networkManager) AttachEndpointToContainer(endpointName string, containerID string) error {
+// GetEndpointByName returns the endpoint matching the Name.
+func (nm *networkManager) GetEndpointByName(endpointName string) (*EndpointInfo, error) {
 	nm.Lock()
 	defer nm.Unlock()
 
-	hnsEndpoint, err := hcsshim.GetHNSEndpointByName(endpointName)
-	if err != nil {
-		return err
-	}
-	// Compartment is optional
-	return hnsEndpoint.ContainerAttach(containerID, 0)
-}
+	// TODO: RS5 at release does not process V2 Endoiunt Schema, using V1 for now.
+	/*
+		hcnEndpoint, err := hcn.GetEndpointByName(endpointName)
+		if err != nil {
+			return nil, err
+		}
 
-// GetNetworkInfo returns information about the given network.
-func (nm *networkManager) DetachEndpointFromContainer(endpointName string, containerID string) error {
-	nm.Lock()
-	defer nm.Unlock()
+		return GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint), nil
+	*/
 
 	hnsEndpoint, err := hcsshim.GetHNSEndpointByName(endpointName)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	// Compartment is optional
-	return hnsEndpoint.ContainerDetach(containerID)
+
+	return GetEndpointInfo(hnsEndpoint), nil
 }
