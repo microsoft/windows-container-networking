@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Microsoft/hcsshim"
+	"github.com/Microsoft/hcsshim/hcn"
 	"visualstudio.com/containernetworking/cni/common"
 )
 
@@ -182,6 +183,10 @@ func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo)
 	if err != nil {
 		return nil, err
 	}
+
+	// Add this endpoint to Namespace
+	hcn.AddNamespaceEndpoint(hnsEndpointConfig.Namespace.ID, hnsendpoint.Id)
+
 	return GetEndpointInfo(hnsendpoint), err
 }
 
@@ -204,6 +209,7 @@ func (nm *networkManager) DeleteEndpoint(endpointID string) error {
 		return nil
 	*/
 
+	// TODO : Remove this endpoint from the namespace, if any
 	_, err := hcsshim.HNSEndpointRequest("DELETE", endpointID, "")
 	return err
 }

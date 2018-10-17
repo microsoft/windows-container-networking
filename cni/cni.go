@@ -166,9 +166,9 @@ func (config *NetworkConfig) Serialize() []byte {
 	return bytes
 }
 
-// Get NetworkInfo from the NetworkConfig
+// GetNetworkInfo from the NetworkConfig
 func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
-	var subnet = network.SubnetInfo{}
+	var subnets []network.SubnetInfo
 	if config.Ipam.Subnet != "" {
 		ip, s, _ := net.ParseCIDR(config.Ipam.Subnet)
 		gatewayIP := ip.To4()
@@ -176,17 +176,19 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 		if config.Ipam.Routes != nil && len(config.Ipam.Routes) > 0 && config.Ipam.Routes[0].GW != nil {
 			gatewayIP = config.Ipam.Routes[0].GW
 		}
-		subnet = network.SubnetInfo{
+		subnet := network.SubnetInfo{
 			AddressPrefix:  *s,
 			GatewayAddress: gatewayIP,
+			Policies:       []network.Policy{},
 		}
+		subnets = append(subnets, subnet)
 	}
 
 	ninfo := &network.NetworkInfo{
 		ID:            config.Name,
 		Name:          config.Name,
 		Type:          network.NetworkType(config.Name),
-		Subnets:       []network.SubnetInfo{subnet},
+		Subnets:       subnets,
 		InterfaceName: "",
 		DNS: network.DNSInfo{
 			Servers: config.DNS.Nameservers,
@@ -222,8 +224,10 @@ func (config *NetworkConfig) GetEndpointInfo(
 		Suffix:  podK8sNamespace + "." + networkinfo.DNS.Suffix,
 	}
 
-	epInfo.Subnet = networkinfo.Subnets[0].AddressPrefix
-	epInfo.Gateway = networkinfo.Subnets[0].GatewayAddress
+	if len(networkinfo.Subnets) > 0 {
+		epInfo.Subnet = networkinfo.Subnets[0].AddressPrefix
+		epInfo.Gateway = networkinfo.Subnets[0].GatewayAddress
+	}
 
 	runtimeConf := config.RuntimeConfig
 	logrus.Debugf("Parsing port mappings from %+v", runtimeConf.PortMappings)
