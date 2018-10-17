@@ -158,7 +158,7 @@ func (info *NetworkInfo) GetHostComputeNetworkConfig() *hcn.HostComputeNetwork {
 
 	return &hcn.HostComputeNetwork{
 		Name: info.Name,
-		Type: string(info.Type),
+		Type: hcn.NetworkType(info.Type),
 		Ipams: []hcn.Ipam{
 			hcn.Ipam{
 				Type:    "Static",
