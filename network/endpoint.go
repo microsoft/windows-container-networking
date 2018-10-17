@@ -6,9 +6,7 @@ package network
 import (
 	"encoding/json"
 	"net"
-	"strings"
 
-	"github.com/Microsoft/hcsshim"
 	"github.com/Microsoft/hcsshim/hcn"
 )
 
@@ -33,80 +31,6 @@ type EndpointInfo struct {
 type RouteInfo struct {
 	Destination net.IPNet
 	Gateway     net.IP
-}
-
-// GetHNSEndpointConfig converts EndpointInfo into HNSEndpoint (V1) format.
-// TODO: RS5 release does not process V2. Method is temporarily preserved so V1 can be used.
-func (endpoint *EndpointInfo) GetHNSEndpointConfig() *hcsshim.HNSEndpoint {
-	// Check for nil on address objects.
-	macAddr := ""
-	if endpoint.MacAddress != nil {
-		macAddr = endpoint.MacAddress.String()
-	}
-	gwAddr := ""
-	if endpoint.Gateway != nil {
-		gwAddr = endpoint.Gateway.String()
-	}
-	// Create Namespace object.
-	hnsns := &hcsshim.Namespace{
-		ID: endpoint.NamespaceID,
-	}
-	hnsep := &hcsshim.HNSEndpoint{
-		Name:           endpoint.Name,
-		Id:             endpoint.ID,
-		VirtualNetwork: endpoint.NetworkID,
-		DNSServerList:  strings.Join(endpoint.DNS.Servers, ","),
-		DNSSuffix:      endpoint.DNS.Suffix,
-		MacAddress:     macAddr,
-		GatewayAddress: gwAddr,
-		IPAddress:      endpoint.IPAddress,
-		Namespace:      hnsns,
-		Policies:       getHNSEndpointPolicies(endpoint.Policies),
-	}
-
-	return hnsep
-}
-
-// GetEndpointInfo converts HNSEndpoint (V1) into EndpointInfo format.
-// TODO: RS5 release does not process V2. Method is temporarily preserved so V1 can be used.
-func GetEndpointInfo(hnsEndpoint *hcsshim.HNSEndpoint) *EndpointInfo {
-	// Ignore empty Mac and Gw
-	macAddr, _ := net.ParseMAC(hnsEndpoint.MacAddress)
-	gwAddr := net.ParseIP(hnsEndpoint.GatewayAddress)
-	return &EndpointInfo{
-		Name:        hnsEndpoint.Name,
-		ID:          hnsEndpoint.Id,
-		NetworkID:   hnsEndpoint.VirtualNetwork,
-		MacAddress:  macAddr,
-		Gateway:     gwAddr,
-		IPAddress:   hnsEndpoint.IPAddress,
-		NamespaceID: hnsEndpoint.Namespace.ID,
-		Policies:    getEndpointPolicies(hnsEndpoint.Policies),
-	}
-}
-
-// getEndpointPolicies
-// TODO: RS5 release does not process V2. Method is temporarily preserved so V1 can be used.
-func getEndpointPolicies(jsonPolicies []json.RawMessage) []Policy {
-	var policies []Policy
-	for _, jsonPolicy := range jsonPolicies {
-		policies = append(policies, Policy{Type: EndpointPolicy, Data: jsonPolicy})
-	}
-
-	return policies
-}
-
-// getHNSEndpointPolicies
-// TODO: RS5 release does not process V2. Method is temporarily preserved so V1 can be used.
-func getHNSEndpointPolicies(policies []Policy) []json.RawMessage {
-	var jsonPolicies []json.RawMessage
-	for _, policy := range policies {
-		if policy.Type == EndpointPolicy {
-			jsonPolicies = append(jsonPolicies, policy.Data)
-		}
-	}
-
-	return jsonPolicies
 }
 
 // GetHostComputeEndpoint converts EndpointInfo to HostComputeEndpoint format.

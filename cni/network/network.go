@@ -110,43 +110,12 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	epInfo := cniConfig.GetEndpointInfo(
 		networkInfo, args.ContainerID, args.Netns, k8sNamespace)
 
+	// If Ipam was provided, allocate a pool and obtain V4 address
 	if cniConfig.Ipam.Type != "" {
-		var result cniTypes.Result
-		var resultImpl *cniTypesImpl.Result
-
-		result, err := invoke.DelegateAdd(cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
+		err = allocateIpam(networkInfo, epInfo, cniConfig)
 		if err != nil {
-			logrus.Infof("[cni-net] Failed to allocate pool, err:%v.", err)
+			// Error was logged by allocateIpam.
 			return nil
-		}
-
-		resultImpl, err = cniTypesImpl.GetResult(result)
-		if err != nil {
-			logrus.Infof("[cni-net] Failed to allocate pool, err:%v.", err)
-			return nil
-		}
-
-		logrus.Infof("[cni-net] IPAM plugin returned result %v.", resultImpl)
-		// Derive the subnet from allocated IP address.
-		if resultImpl.IP4 != nil {
-			var subnetInfo = network.SubnetInfo{
-				AddressPrefix:  resultImpl.IP4.IP,
-				GatewayAddress: resultImpl.IP4.Gateway,
-			}
-			networkInfo.Subnets = append(networkInfo.Subnets, subnetInfo)
-			epInfo.IPAddress = resultImpl.IP4.IP.IP
-			epInfo.Gateway = resultImpl.IP4.Gateway
-			epInfo.Subnet = resultImpl.IP4.IP
-
-			for _, route := range resultImpl.IP4.Routes {
-				epInfo.Routes = append(epInfo.Routes, network.RouteInfo{Destination: route.Dst, Gateway: route.GW})
-			}
-			/*
-				// TODO : This should override the global settings.
-					epInfo.DNS = network.DNSInfo{
-						Servers: resultImpl.DNS.Nameservers,
-					}
-			*/
 		}
 	}
 
@@ -156,28 +125,10 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		return fmt.Errorf("Cannot create Endpoint without a Namespace")
 	}
 
-	// Name of the Network that would be created. HNS allows to create multiple networks with duplicate name
-	hnsNetworkId := cniConfig.Name // Initialize with the Name.
-
-	// Check whether the network already exists.
-	nwConfig, err := plugin.nm.GetNetworkByName(cniConfig.Name)
+	nwConfig, err := getOrCreateNetwork(plugin, networkInfo, cniConfig, args.IfName)
 	if err != nil {
-		// Network does not exist.
-		logrus.Infof("[cni-net] Creating network.")
-
-		networkInfo.InterfaceName = args.IfName
-		nwConfig, err = plugin.nm.CreateNetwork(networkInfo)
-		if err != nil {
-			logrus.Errorf("[cni-net] Failed to create network, err:%v.", err)
-			return nil
-		}
-
-		hnsNetworkId = nwConfig.ID
-		logrus.Debugf("[cni-net] Created network %v with subnet %v.", hnsNetworkId, cniConfig.Ipam.Subnet)
-	} else {
-		// Network already exists.
-		hnsNetworkId = nwConfig.ID
-		logrus.Debugf("[cni-net] Found network %v with subnet %v.", hnsNetworkId, nwConfig.Subnets)
+		// Error was logged by getNetwork.
+		return nil
 	}
 
 	hnsEndpoint, err := plugin.nm.GetEndpointByName(epInfo.Name)
@@ -202,7 +153,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	// Apply the Network Policy for Endpoint
 	epInfo.Policies = append(epInfo.Policies, networkInfo.Policies...)
 
-	epInfo, err = plugin.nm.CreateEndpoint(hnsNetworkId, epInfo)
+	epInfo, err = plugin.nm.CreateEndpoint(nwConfig.ID, epInfo)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to create endpoint, err:%v.", err)
 		return nil
@@ -212,6 +163,81 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	result.Print()
 	//logrus.Debugf(result.String())
 	return nil
+}
+
+// allocateIpam allocateds a pool, then acquires a V4 subnet, endpoint address, and route.
+func allocateIpam(
+	networkInfo *network.NetworkInfo,
+	endpointInfo *network.EndpointInfo,
+	cniConfig *cni.NetworkConfig) error {
+	var result cniTypes.Result
+	var resultImpl *cniTypesImpl.Result
+
+	result, err := invoke.DelegateAdd(cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
+	if err != nil {
+		logrus.Infof("[cni-net] Failed to allocate pool, err:%v.", err)
+		return err
+	}
+
+	resultImpl, err = cniTypesImpl.GetResult(result)
+	if err != nil {
+		logrus.Infof("[cni-net] Failed to allocate pool, err:%v.", err)
+		return err
+	}
+
+	logrus.Infof("[cni-net] IPAM plugin returned result %v.", resultImpl)
+	// Derive the subnet from allocated IP address.
+	if resultImpl.IP4 != nil {
+		var subnetInfo = network.SubnetInfo{
+			AddressPrefix:  resultImpl.IP4.IP,
+			GatewayAddress: resultImpl.IP4.Gateway,
+		}
+		networkInfo.Subnets = append(networkInfo.Subnets, subnetInfo)
+		endpointInfo.IPAddress = resultImpl.IP4.IP.IP
+		endpointInfo.Gateway = resultImpl.IP4.Gateway
+		endpointInfo.Subnet = resultImpl.IP4.IP
+
+		for _, route := range resultImpl.IP4.Routes {
+			endpointInfo.Routes = append(endpointInfo.Routes, network.RouteInfo{Destination: route.Dst, Gateway: route.GW})
+		}
+		/*
+			// TODO : This should override the global settings.
+				endpointInfo.DNS = network.DNSInfo{
+					Servers: resultImpl.DNS.Nameservers,
+				}
+		*/
+	}
+
+	return nil
+}
+
+// getOrCreateNetwork
+// TODO: Require network to be created beforehand and make it an error of the network is not found.
+// Once that is done, remove this function.
+func getOrCreateNetwork(
+	plugin *netPlugin,
+	networkInfo *network.NetworkInfo,
+	cniConfig *cni.NetworkConfig,
+	interfaceName string) (*network.NetworkInfo, error) {
+	// Check whether the network already exists.
+	nwConfig, err := plugin.nm.GetNetworkByName(cniConfig.Name)
+	if err != nil {
+		// Network does not exist.
+		logrus.Infof("[cni-net] Creating network.")
+
+		networkInfo.InterfaceName = interfaceName
+		nwConfig, err = plugin.nm.CreateNetwork(networkInfo)
+		if err != nil {
+			logrus.Errorf("[cni-net] Failed to create network, err:%v.", err)
+			return nil, err
+		}
+
+		logrus.Debugf("[cni-net] Created network %v with subnet %v.", nwConfig.ID, cniConfig.Ipam.Subnet)
+	} else {
+		// Network already exists.
+		logrus.Debugf("[cni-net] Found network %v with subnet %v.", nwConfig.ID, nwConfig.Subnets)
+	}
+	return nwConfig, nil
 }
 
 // Delete handles CNI delete commands.

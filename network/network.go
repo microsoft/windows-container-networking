@@ -5,11 +5,9 @@ package network
 
 import (
 	"encoding/json"
-	"strings"
 
 	"net"
 
-	"github.com/Microsoft/hcsshim"
 	"github.com/Microsoft/hcsshim/hcn"
 )
 
@@ -44,103 +42,6 @@ type SubnetInfo struct {
 	AddressPrefix  net.IPNet
 	GatewayAddress net.IP
 	Policies       []Policy
-}
-
-// GetHNSNetworkConfig converts NetworkInfo into HNSNetwork (V1).
-// TODO: RS5 release does not process V2. Method is temporarily preserved so V1 can be used.
-func (info *NetworkInfo) GetHNSNetworkConfig() *hcsshim.HNSNetwork {
-	subnets := []hcsshim.Subnet{}
-	for _, subnet := range info.Subnets {
-		subnets = append(subnets, *subnet.getHNSSubnetConfig())
-	}
-
-	return &hcsshim.HNSNetwork{
-		Name:          info.Name,
-		Type:          string(info.Type),
-		Subnets:       subnets,
-		DNSServerList: strings.Join(info.DNS.Servers, ","),
-		DNSSuffix:     info.DNS.Suffix,
-		SourceMac:     "",
-		//NetworkAdapterName: info.InterfaceName,
-		Policies: getHNSNetworkPolicies(info.Policies),
-	}
-}
-
-// GetNetworkInfo converts HNSNetwork (V1) into NetworkInfo.
-// TODO: RS5 release does not process V2. Method is temporarily preserved so V1 can be used.
-func GetNetworkInfo(hnsNetwork *hcsshim.HNSNetwork) *NetworkInfo {
-	var subnets []SubnetInfo
-	for _, subnet := range hnsNetwork.Subnets {
-		subnets = append(subnets, getSubnetInfo(&subnet))
-	}
-	return &NetworkInfo{
-		ID:            hnsNetwork.Id,
-		Name:          hnsNetwork.Name,
-		Type:          NetworkType(hnsNetwork.Type),
-		InterfaceName: hnsNetwork.NetworkAdapterName,
-		Subnets:       subnets,
-		DNS: DNSInfo{
-			Suffix:  hnsNetwork.DNSSuffix,
-			Servers: strings.Split(hnsNetwork.DNSServerList, ","),
-		},
-		Policies: getNetworkPolicies(hnsNetwork.Policies),
-	}
-}
-
-// getSubnetInfo
-// TODO: RS5 release does not process V2. Method is temporarily preserved so V1 can be used.
-func getSubnetInfo(hnsSubnet *hcsshim.Subnet) SubnetInfo {
-	// Ignore empty Prefix and Gateway.
-	_, ipsubnet, _ := net.ParseCIDR(hnsSubnet.AddressPrefix)
-	gwAddr := net.ParseIP(hnsSubnet.GatewayAddress)
-	return SubnetInfo{
-		AddressPrefix:  *ipsubnet,
-		GatewayAddress: gwAddr,
-		Policies:       getNetworkPolicies(hnsSubnet.Policies),
-	}
-}
-
-// getHNSSubnetConfig
-// TODO: RS5 release does not process V2. Method is temporarily preserved so V1 can be used.
-func (subnet *SubnetInfo) getHNSSubnetConfig() *hcsshim.Subnet {
-	// Check for nil on address objects.
-	ipAddr := ""
-	if subnet.AddressPrefix.IP != nil && subnet.AddressPrefix.Mask != nil {
-		ipAddr = subnet.AddressPrefix.String()
-	}
-	gwAddr := ""
-	if subnet.GatewayAddress != nil {
-		gwAddr = subnet.GatewayAddress.String()
-	}
-	return &hcsshim.Subnet{
-		AddressPrefix:  ipAddr,
-		GatewayAddress: gwAddr,
-		Policies:       getHNSNetworkPolicies(subnet.Policies),
-	}
-}
-
-// getNetworkPolicies
-// TODO: RS5 release does not process V2. Method is temporarily preserved so V1 can be used.
-func getNetworkPolicies(jsonPolicies []json.RawMessage) []Policy {
-	var policies []Policy
-	for _, jsonPolicy := range jsonPolicies {
-		policies = append(policies, Policy{Type: NetworkPolicy, Data: jsonPolicy})
-	}
-
-	return policies
-}
-
-// getHNSNetworkPolicies
-// TODO: RS5 release does not process V2. Method is temporarily preserved so V1 can be used.
-func getHNSNetworkPolicies(policies []Policy) []json.RawMessage {
-	var jsonPolicies []json.RawMessage
-	for _, policy := range policies {
-		if policy.Type == NetworkPolicy {
-			jsonPolicies = append(jsonPolicies, policy.Data)
-		}
-	}
-
-	return jsonPolicies
 }
 
 // GetHostComputeNetworkConfig converts NetworkInfo to HCN format.
