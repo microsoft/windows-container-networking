@@ -127,8 +127,11 @@ func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo)
 		return nil, err
 	}
 
-    // Add this endpoint to Namespace
-	hcn.AddNamespaceEndpoint(hnsEndpointConfig.Namespace.ID, hnsendpoint.Id)
+	// Add this endpoint to Namespace
+	err = hcn.AddNamespaceEndpoint(hcnEndpoint.HostComputeNamespace, hcnEndpoint.Id)
+	if err != nil {
+		return nil, err
+	}
 
 	return GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint), err
 }
@@ -147,8 +150,13 @@ func (nm *networkManager) DeleteEndpoint(endpointID string) error {
 		return err
 	}
 
-	// TODO : Remove this endpoint from the namespace, if any
-    return nil
+	// Remove this endpoint from the namespace
+	err = hcn.RemoveNamespaceEndpoint(hcnEndpoint.HostComputeNamespace, hcnEndpoint.Id)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GetEndpoint returns the endpoint matching the Id.

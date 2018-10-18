@@ -104,7 +104,10 @@ func GetNetworkInfoFromHostComputeNetwork(hcnNetwork *hcn.HostComputeNetwork) *N
 func GetSubnetInfoFromHostComputeSubnet(hcnSubnet *hcn.Subnet) SubnetInfo {
 	// Ignore empty Prefix and Gateway.
 	_, ipsubnet, _ := net.ParseCIDR(hcnSubnet.IpAddressPrefix)
-	gwAddr := net.ParseIP(hcnSubnet.Routes[0].NextHop)
+	var gwAddr net.IP
+	if len(hcnSubnet.Routes) > 0 {
+		gwAddr = net.ParseIP(hcnSubnet.Routes[0].NextHop)
+	}
 	return SubnetInfo{
 		AddressPrefix:  *ipsubnet,
 		GatewayAddress: gwAddr,

@@ -80,8 +80,14 @@ func (endpoint *EndpointInfo) GetHostComputeEndpoint() *hcn.HostComputeEndpoint 
 func GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint *hcn.HostComputeEndpoint) *EndpointInfo {
 	// Ignore empty MAC, GW, and IP.
 	macAddr, _ := net.ParseMAC(hcnEndpoint.MacAddress)
-	gwAddr := net.ParseIP(hcnEndpoint.Routes[0].NextHop)
-	ipAddr := net.ParseIP(hcnEndpoint.IpConfigurations[0].IpAddress)
+	var gwAddr net.IP
+	if len(hcnEndpoint.Routes) > 0 {
+		gwAddr = net.ParseIP(hcnEndpoint.Routes[0].NextHop)
+	}
+	var ipAddr net.IP
+	if len(hcnEndpoint.IpConfigurations) > 0 {
+		ipAddr = net.ParseIP(hcnEndpoint.IpConfigurations[0].IpAddress)
+	}
 	return &EndpointInfo{
 		Name:        hcnEndpoint.Name,
 		ID:          hcnEndpoint.Id,
