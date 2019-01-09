@@ -6,10 +6,10 @@ package main
 import (
 	"os"
 
+	"github.com/Microsoft/windows-container-networking/cni"
+	"github.com/Microsoft/windows-container-networking/cni/network"
+	"github.com/Microsoft/windows-container-networking/common"
 	"github.com/sirupsen/logrus"
-	"visualstudio.com/containernetworking/cni/cni"
-	"visualstudio.com/containernetworking/cni/cni/network"
-	"visualstudio.com/containernetworking/cni/common"
 )
 
 // Version is populated by make during build.

@@ -4,12 +4,13 @@
 package network
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/Microsoft/windows-container-networking/cni"
+	"github.com/Microsoft/windows-container-networking/common"
+	"github.com/Microsoft/windows-container-networking/network"
 	"github.com/sirupsen/logrus"
-	"visualstudio.com/containernetworking/cni/cni"
-	"visualstudio.com/containernetworking/cni/common"
-	"visualstudio.com/containernetworking/cni/network"
 
 	"context"
 	"github.com/containernetworking/cni/pkg/invoke"
