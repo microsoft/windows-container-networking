@@ -1,15 +1,15 @@
 // Copyright Microsoft Corp.
 // All rights reserved.
 
-package network
+package core
 
 import (
 	"fmt"
 
+	"github.com/Microsoft/windows-container-networking/cni"
+	"github.com/Microsoft/windows-container-networking/common"
+	"github.com/Microsoft/windows-container-networking/network"
 	"github.com/sirupsen/logrus"
-	"visualstudio.com/containernetworking/cni/cni"
-	"visualstudio.com/containernetworking/cni/common"
-	"visualstudio.com/containernetworking/cni/network"
 
 	"github.com/containernetworking/cni/pkg/invoke"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
@@ -105,10 +105,12 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	}
 
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
+
 	// Convert cniConfig to NetworkInfo
+	// We don't set namespace, setting namespace is not valid for EP creation
 	networkInfo := cniConfig.GetNetworkInfo()
 	epInfo := cniConfig.GetEndpointInfo(
-		networkInfo, args.ContainerID, args.Netns, k8sNamespace)
+		networkInfo, args.ContainerID, "", k8sNamespace)
 
 	// If Ipam was provided, allocate a pool and obtain V4 address
 	if cniConfig.Ipam.Type != "" {
@@ -120,8 +122,8 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	}
 
 	// Check for missing namespace
-	if epInfo.NamespaceID == "" {
-		logrus.Errorf("[cni-net] Endpoint missing Namsepace, cannot Add. [%v].", epInfo)
+	if args.Netns == "" {
+		logrus.Errorf("[cni-net] Missing Namespace, cannot Add. [%v].", epInfo)
 		return fmt.Errorf("Cannot create Endpoint without a Namespace")
 	}
 
@@ -153,7 +155,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	// Apply the Network Policy for Endpoint
 	epInfo.Policies = append(epInfo.Policies, networkInfo.Policies...)
 
-	epInfo, err = plugin.nm.CreateEndpoint(nwConfig.ID, epInfo)
+	epInfo, err = plugin.nm.CreateEndpoint(nwConfig.ID, epInfo, args.Netns)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to create endpoint, err:%v.", err)
 		return nil

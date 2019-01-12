@@ -1,22 +1,21 @@
 // Copyright Microsoft Corp.
 // All rights reserved.
 
-package main
+package core
 
 import (
 	"os"
 
+	"github.com/Microsoft/windows-container-networking/cni"
+	"github.com/Microsoft/windows-container-networking/common"
 	"github.com/sirupsen/logrus"
-	"visualstudio.com/containernetworking/cni/cni"
-	"visualstudio.com/containernetworking/cni/cni/network"
-	"visualstudio.com/containernetworking/cni/common"
 )
 
 // Version is populated by make during build.
 var version string
 
-// Main is the entry point for CNI network plugin.
-func main() {
+// The entry point for CNI network plugin.
+func Core() {
 	var config common.PluginConfig
 	config.Version = version
 
@@ -28,7 +27,7 @@ func main() {
 	}
 	defer file.Close()
 
-	netPlugin, err := network.NewPlugin(&config)
+	netPlugin, err := NewPlugin(&config)
 	if err != nil {
 		logrus.Errorf("Failed to create network plugin, err:%v", err)
 		os.Exit(1)
