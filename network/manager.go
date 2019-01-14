@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Microsoft/hcsshim/hcn"
-	"visualstudio.com/containernetworking/cni/common"
+	"github.com/Microsoft/windows-container-networking/common"
 )
 
 // NetworkManager manages the set of container networking resources.
@@ -28,7 +28,7 @@ type Manager interface {
 	GetNetwork(networkID string) (*NetworkInfo, error)
 	GetNetworkByName(networkName string) (*NetworkInfo, error)
 	// Endpoint
-	CreateEndpoint(networkID string, epInfo *EndpointInfo) (*EndpointInfo, error)
+	CreateEndpoint(networkID string, epInfo *EndpointInfo, namespaceID string) (*EndpointInfo, error)
 	DeleteEndpoint(endpointID string) error
 	GetEndpoint(endpointID string) (*EndpointInfo, error)
 	GetEndpointByName(endpointName string) (*EndpointInfo, error)
@@ -77,7 +77,7 @@ func (nm *networkManager) DeleteNetwork(networkID string) error {
 	if err != nil {
 		return err
 	}
-	_, err = hcnNetwork.Delete()
+	err = hcnNetwork.Delete()
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (nm *networkManager) GetNetworkByName(networkName string) (*NetworkInfo, er
 //
 
 // CreateEndpoint creates a new container endpoint.
-func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo) (*EndpointInfo, error) {
+func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo, namespaceID string) (*EndpointInfo, error) {
 	nm.Lock()
 	defer nm.Unlock()
 
@@ -128,7 +128,7 @@ func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo)
 	}
 
 	// Add this endpoint to Namespace
-	err = hcn.AddNamespaceEndpoint(hcnEndpoint.HostComputeNamespace, hcnEndpoint.Id)
+	err = hcn.AddNamespaceEndpoint(namespaceID, hcnEndpoint.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,8 @@ func (nm *networkManager) DeleteEndpoint(endpointID string) error {
 	if err != nil {
 		return err
 	}
-	_, err = hcnEndpoint.Delete()
+
+	err = hcnEndpoint.Delete()
 	if err != nil {
 		return err
 	}

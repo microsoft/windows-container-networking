@@ -22,8 +22,10 @@ const (
 )
 
 type DNSInfo struct {
-	Servers []string
-	Suffix  string
+	Nameservers []string
+	Domain      string
+	Search      []string
+	Options     []string
 }
 
 // Datastore for NetworkInfo.
@@ -57,18 +59,25 @@ func (info *NetworkInfo) GetHostComputeNetworkConfig() *hcn.HostComputeNetwork {
 		hcnPolicies = append(hcnPolicies, CreateNetworkPolicySetting(info.InterfaceName))
 	}
 
-	return &hcn.HostComputeNetwork{
-		Name: info.Name,
-		Type: hcn.NetworkType(info.Type),
-		Ipams: []hcn.Ipam{
+	ipams := []hcn.Ipam{}
+	if len(subnets) > 0 {
+		ipams = []hcn.Ipam{
 			hcn.Ipam{
 				Type:    "Static",
 				Subnets: subnets,
 			},
-		},
+		}
+	}
+
+	return &hcn.HostComputeNetwork{
+		Name:  info.Name,
+		Type:  hcn.NetworkType(info.Type),
+		Ipams: ipams,
 		Dns: hcn.Dns{
-			Suffix:     info.DNS.Suffix,
-			ServerList: info.DNS.Servers,
+			Domain:     info.DNS.Domain,
+			Search:     info.DNS.Search,
+			ServerList: info.DNS.Nameservers,
+			Options:    info.DNS.Options,
 		},
 		SchemaVersion: hcn.SchemaVersion{
 			Major: 2,
@@ -93,8 +102,10 @@ func GetNetworkInfoFromHostComputeNetwork(hcnNetwork *hcn.HostComputeNetwork) *N
 		InterfaceName: GetNetAdapterNameNetworkPolicySetting(hcnNetwork.Policies),
 		Subnets:       subnets,
 		DNS: DNSInfo{
-			Suffix:  hcnNetwork.Dns.Suffix,
-			Servers: hcnNetwork.Dns.ServerList,
+			Domain:      hcnNetwork.Dns.Domain,
+			Search:      hcnNetwork.Dns.Search,
+			Nameservers: hcnNetwork.Dns.ServerList,
+			Options:     hcnNetwork.Dns.Options,
 		},
 		Policies: GetNetworkPoliciesFromHostComputeNetworkPolicies(hcnNetwork.Policies),
 	}
@@ -123,14 +134,17 @@ func (subnet *SubnetInfo) GetHostComputeSubnetConfig() *hcn.Subnet {
 		ipAddr = subnet.AddressPrefix.String()
 	}
 	gwAddr := ""
+	destPrefix := ""
 	if subnet.GatewayAddress != nil {
 		gwAddr = subnet.GatewayAddress.String()
+		destPrefix = "0.0.0.0/0"
 	}
 	return &hcn.Subnet{
 		IpAddressPrefix: ipAddr,
 		Routes: []hcn.Route{
 			hcn.Route{
-				NextHop: gwAddr,
+				NextHop:           gwAddr,
+				DestinationPrefix: destPrefix,
 			},
 		},
 		Policies: GetHostComputeSubnetPolicies(subnet.Policies),
