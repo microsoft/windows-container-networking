@@ -76,7 +76,7 @@ func CreateNetworkConf(cniVersion string, name string, pluginType string,
 		Dst: *dst,
 	}
 	testIpam := cni.IpamConfig{
-		Environment: "azure",
+		Environment: "mas",
 		Subnet: "10.0.0.0/16",
 		Routes: []cniTypes.Route{testRoute},
 	}
@@ -142,7 +142,10 @@ func CreateGatewayEp(networkId string, ipAddress string) error {
 	}
 	createdEp, err := gwEp.Create()
 	if err != nil {
-		return fmt.Errorf("Gateway Endpoint Create Failed: %v", err)
+		createdEp, err = gwEp.Create()
+		if err != nil {
+			return fmt.Errorf("Gateway Endpoint Create Failed: %v", err)
+		}	
 	}
 	ep, err := hcsshim.GetHNSEndpointByName(createdEp.Name)
 	if err != nil {
@@ -237,7 +240,7 @@ func (pt *PluginUnitTest) Setup(t *testing.T) error {
 	}
 	
 	if pt.NeedGW {
-		err = CreateGatewayEp(pt.Network.Id, pt.Network.Ipams[0].Subnets[0].Routes[0].NextHop)
+		err = CreateGatewayEp(pt.Network.Id, "10.0.0.1")
 		if err != nil {
 			t.Errorf("Error while creating Gateway Endpoint: %v", err)
 			return err
