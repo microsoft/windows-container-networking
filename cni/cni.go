@@ -44,21 +44,23 @@ type RuntimeConfig struct {
 	DNS          cniTypes.DNS  `json:"dns"`
 }
 
+type IpamConfig struct {
+	Type          string           `json:"type"`
+	Environment   string           `json:"environment,omitempty"`
+	AddrSpace     string           `json:"addressSpace,omitempty"`
+	Subnet        string           `json:"subnet,omitempty"`
+	Address       string           `json:"ipAddress,omitempty"`
+	QueryInterval string           `json:"queryInterval,omitempty"`
+	Routes        []cniTypes.Route `json:"routes,omitempty"`
+}
+
 // NetworkConfig represents the Windows CNI plugin's network configuration.
 // Defined as per https://github.com/containernetworking/cni/blob/master/SPEC.md
 type NetworkConfig struct {
 	CniVersion string `json:"cniVersion"`
 	Name       string `json:"name"` // Name is the Network Name. We would also use this as the Type of HNS Network
 	Type       string `json:"type"` // As per SPEC, Type is Name of the Binary
-	Ipam       struct {
-		Type          string           `json:"type"`
-		Environment   string           `json:"environment,omitempty"`
-		AddrSpace     string           `json:"addressSpace,omitempty"`
-		Subnet        string           `json:"subnet,omitempty"`
-		Address       string           `json:"ipAddress,omitempty"`
-		QueryInterval string           `json:"queryInterval,omitempty"`
-		Routes        []cniTypes.Route `json:"routes,omitempty"`
-	}
+	Ipam       IpamConfig `json:"ipam"`
 	DNS            cniTypes.DNS  `json:"dns"`
 	RuntimeConfig  RuntimeConfig `json:"runtimeConfig"`
 	AdditionalArgs []KVP
@@ -244,7 +246,6 @@ func (config *NetworkConfig) GetEndpointInfo(
 	newSearch := []string{}
 	if len(networkinfo.DNS.Search) > 0 {
 		newSearch = []string{podK8sNamespace + "." + networkinfo.DNS.Search[0]}
-		newSearch = append(newSearch, networkinfo.DNS.Search...)
 	}
 	epInfo.DNS = network.DNSInfo{
 		Domain:      networkinfo.DNS.Domain,
