@@ -11,6 +11,7 @@ import (
 	"visualstudio.com/containernetworking/cni/common"
 	"visualstudio.com/containernetworking/cni/network"
 
+	"context"
 	"github.com/containernetworking/cni/pkg/invoke"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -114,7 +115,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		var result cniTypes.Result
 		var resultImpl *cniTypesImpl.Result
 
-		result, err := invoke.DelegateAdd(cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
+		result, err := invoke.DelegateAdd(context.TODO(), cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
 		if err != nil {
 			logrus.Infof("[cni-net] Failed to allocate pool, err:%v.", err)
 			return nil
