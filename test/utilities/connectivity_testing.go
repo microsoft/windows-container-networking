@@ -240,7 +240,9 @@ func (pt *PluginUnitTest) Setup(t *testing.T) error {
 	}
 
 	if pt.NeedGW {
-		err = CreateGatewayEp(pt.Network.Id, "10.0.0.1")
+		conf := cni.NetworkConfig{}
+		json.Unmarshal(pt.NetConfJson, &conf)
+		err = CreateGatewayEp(pt.Network.Id, conf.Ipam.Routes[0].GW.String())
 		if err != nil {
 			t.Errorf("Error while creating Gateway Endpoint: %v", err)
 			return err
