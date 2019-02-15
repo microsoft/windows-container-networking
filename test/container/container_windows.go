@@ -211,172 +211,107 @@ type testIO struct {
 func newTestIO(t *testing.T) *testIO {
 
 	var err error
-
 	tio := &testIO{
-
 		outBuff: &bytes.Buffer{},
-
 		errBuff: &bytes.Buffer{},
-
 	}
-
 	defer func() {
-
 		if err != nil {
-
 			tio.Close()
-
 		}
 
 	}()
 
-
-
 	r, w, err := os.Pipe()
-
 	if err != nil {
-
 		t.Fatalf("failed to create stdout pipes: %v", err)
-
 	}
 
 	tio.or, tio.ow = r, w
-
 	r, w, err = os.Pipe()
-
 	if err != nil {
-
 		t.Fatalf("failed to create stderr pipes: %v", err)
-
 	}
 
 	tio.er, tio.ew = r, w
 
-
-
 	g, _ := errgroup.WithContext(context.TODO())
-
 	tio.g = g
-
 	tio.g.Go(func() error {
-
 		_, err := io.Copy(tio.outBuff, tio.Stdout())
-
 		return err
-
 	})
-
 	tio.g.Go(func() error {
-
 		_, err := io.Copy(tio.errBuff, tio.Stderr())
-
 		return err
-
 	})
-
 	return tio
-
 }
 
 
 
 func (t *testIO) Stdin() io.WriteCloser {
-
 	return nil
-
 }
 
 
 
 func (t *testIO) Stdout() io.ReadCloser {
-
 	return t.or
-
 }
 
 
 
 func (t *testIO) Stderr() io.ReadCloser {
-
 	return t.er
-
 }
 
 
 
 func (t *testIO) Set(cmd *exec.Cmd) {
-
 	cmd.Stdout = t.ow
-
 	cmd.Stderr = t.ew
-
 }
 
 
 
 func (t *testIO) Close() error {
-
 	var err error
-
 	for _, v := range []*os.File{
-
 		t.ow, t.ew,
-
 		t.or, t.er,
-
 	} {
-
 		if cerr := v.Close(); err == nil {
-
 			err = cerr
-
 		}
-
 	}
-
 	return err
-
 }
 
 
 
 func (t *testIO) CloseAfterStart() error {
-
 	t.ow.Close()
-
 	t.ew.Close()
-
 	return nil
-
 }
 
 
 
 func (t *testIO) Wait() error {
-
 	return t.g.Wait()
 
 }
 
 func readPidFile(path string) (int, error) {
-
 	data, err := ioutil.ReadFile(path)
-
 	if err != nil {
-
 		return -1, errors.Wrap(err, "failed to read pidfile")
-
 	}
-
 	p, err := strconv.Atoi(string(data))
-
 	if err != nil {
-
 		return -1, errors.Wrap(err, "pidfile failed to parse pid")
-
 	}
-
 	return p, nil
-
 }
 

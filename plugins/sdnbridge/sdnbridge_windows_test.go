@@ -30,24 +30,19 @@ func TestBridgeCmdAdd(t *testing.T) {
 		t.Errorf("Failed To Create: %v", err2)
 	} else {
 
-		pt.ContainerId = cid2
-		pt.DummyContainer = false
-		pt.CniCmdArgs.ContainerID = cid2
-		pt.CniCmdArgs.Netns = namespace2.Id
-		pt.EpName = cid2 + "_" + pt.Network.Name
-		ns1 := pt.Namespace
-		pt.Namespace = namespace2
-		err = pt.RunAddTest(t)
+		pt2 := pt
+		pt2.ContainerId = cid2
+		pt2.DummyContainer = false
+		pt2.CniCmdArgs.ContainerID = cid2
+		pt2.CniCmdArgs.Netns = namespace2.Id
+		pt2.EpName = cid2 + "_" + pt.Network.Name
+		pt2.Namespace = namespace2
+		err = pt2.RunAddTest(t)
 		if err != nil {
 			t.Errorf("Failed Add Comand: %v", err)
 		}
-		c2ip = pt.Endpoint.IpConfigurations[0].IpAddress
-		pt.ContainerId = cid1
-		pt.DummyContainer = false
-		pt.CniCmdArgs.ContainerID = cid1
-		pt.EpName = cid1 + "_" + pt.Network.Name
-		pt.CniCmdArgs.Netns = ns1.Id
-		pt.Namespace = ns1
+		c2ip = pt2.Endpoint.IpConfigurations[0].IpAddress
+
 		err = pt.RunAddTest(t)
 		if err != nil {
 			t.Errorf("Failed Add Comand: %v", err)

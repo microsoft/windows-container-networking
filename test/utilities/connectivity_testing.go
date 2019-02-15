@@ -10,11 +10,11 @@ import (
 	"github.com/Microsoft/windows-container-networking/test/container"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
-	"net"
 )
 
 const (
@@ -69,16 +69,16 @@ func getDefaultEndpointPolicies() []hcn.EndpointPolicy {
 
 func CreateNetworkConf(cniVersion string, name string, pluginType string,
 	dns *cniTypes.DNS, addArgs []cni.KVP) *cni.NetworkConfig {
-	ip, _, _ :=  net.ParseCIDR("10.0.0.2/32")
-	_, dst, _ :=  net.ParseCIDR("0.0.0.0/0")
+	ip, _, _ := net.ParseCIDR("10.0.0.2/32")
+	_, dst, _ := net.ParseCIDR("0.0.0.0/0")
 	testRoute := cniTypes.Route{
-		GW: ip,
+		GW:  ip,
 		Dst: *dst,
 	}
 	testIpam := cni.IpamConfig{
 		Environment: "mas",
-		Subnet: "10.0.0.0/16",
-		Routes: []cniTypes.Route{testRoute},
+		Subnet:      "10.0.0.0/16",
+		Routes:      []cniTypes.Route{testRoute},
 	}
 	netConf := cni.NetworkConfig{
 		CniVersion:     cniVersion,
@@ -145,7 +145,7 @@ func CreateGatewayEp(networkId string, ipAddress string) error {
 		createdEp, err = gwEp.Create()
 		if err != nil {
 			return fmt.Errorf("Gateway Endpoint Create Failed: %v", err)
-		}	
+		}
 	}
 	ep, err := hcsshim.GetHNSEndpointByName(createdEp.Name)
 	if err != nil {
@@ -217,7 +217,7 @@ type PluginUnitTest struct {
 	Namespace      *hcn.HostComputeNamespace
 	EpName         string
 	DummyContainer bool
-	NeedGW       bool
+	NeedGW         bool
 }
 
 func (pt *PluginUnitTest) Create(netJson []byte, network *hcn.HostComputeNetwork, expectedPolicies []hcn.EndpointPolicy,
@@ -238,7 +238,7 @@ func (pt *PluginUnitTest) Setup(t *testing.T) error {
 		t.Errorf("Error while creating supplied network: %v", err)
 		return err
 	}
-	
+
 	if pt.NeedGW {
 		err = CreateGatewayEp(pt.Network.Id, "10.0.0.1")
 		if err != nil {
@@ -262,7 +262,7 @@ func (pt *PluginUnitTest) Teardown(t *testing.T) error {
 	if err != nil {
 		t.Errorf("Error while deleting network:  %v ", err)
 		return err
-	}	
+	}
 	err = pt.Namespace.Delete()
 	if err != nil {
 		t.Errorf("Error while delete namespace: %v", err)
