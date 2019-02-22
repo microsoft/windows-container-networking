@@ -9,11 +9,11 @@ import (
 	"net"
 	"strings"
 
+	network "github.com/Microsoft/windows-container-networking/network"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypes020 "github.com/containernetworking/cni/pkg/types/020"
 	"github.com/sirupsen/logrus"
-	network "visualstudio.com/containernetworking/cni/network"
 )
 
 const (
