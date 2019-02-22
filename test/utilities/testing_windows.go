@@ -1,40 +1,39 @@
 package util
 
 import (
-_	"bytes"
-_	"os"
-_	"io"
-_	"path/filepath"
-_	"strings"
-_	"fmt"
-
-_	"github.com/Microsoft/hcsshim"
-_	"github.com/docker/docker/api/types"
-_	"github.com/docker/docker/api/types/container"
-_ 	"github.com/docker/docker/client"
-	_ 	"golang.org/x/net/context"
-	"github.com/Microsoft/windows-container-networking/common/core"
+	"encoding/json"
+	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/common"
-
+	"github.com/Microsoft/windows-container-networking/common/core"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 )
 
 const Interface = "Ethernet"
-func CreateArgs(cid string, namespaceID string, cniConfJson string) (cniSkel.CmdArgs) {
+
+func CreateArgs(cid string, namespaceID string, cniConfJson []byte) cniSkel.CmdArgs {
+	podConf := cni.K8SPodEnvArgs{
+		K8S_POD_NAMESPACE: "test-default",
+	}
+	buffer, err := json.Marshal(podConf)
+	if err != nil {
+		panic(err)
+	}
+
 	args := cniSkel.CmdArgs{
 		ContainerID: cid,
-		IfName: Interface,
-		Netns: namespaceID,
-		Path: ".",
-		StdinData : []byte(cniConfJson),
+		IfName:      Interface,
+		Netns:       namespaceID,
+		Path:        ".",
+		Args:        string(buffer),
+		StdinData:   cniConfJson,
 	}
 	return args
 }
 
-func AddCase(args cniSkel.CmdArgs) (error) {
+func AddCase(args cniSkel.CmdArgs) error {
 
 	config := common.PluginConfig{}
-	
+
 	netPlugin, err := core.NewPlugin(&config)
 	if err != nil {
 		return err
@@ -51,10 +50,10 @@ func AddCase(args cniSkel.CmdArgs) (error) {
 	return nil
 }
 
-func DelCase(args cniSkel.CmdArgs) (error) {
+func DelCase(args cniSkel.CmdArgs) error {
 
 	config := common.PluginConfig{}
-	
+
 	netPlugin, err := core.NewPlugin(&config)
 	if err != nil {
 		return err
@@ -70,4 +69,3 @@ func DelCase(args cniSkel.CmdArgs) (error) {
 
 	return nil
 }
-

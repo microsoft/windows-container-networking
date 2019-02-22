@@ -62,7 +62,8 @@ func (endpoint *EndpointInfo) GetHostComputeEndpoint() *hcn.HostComputeEndpoint 
 		MacAddress: macAddr,
 		Routes: []hcn.Route{
 			hcn.Route{
-				NextHop: gwAddr,
+				NextHop:           gwAddr,
+				DestinationPrefix: "0.0.0.0/0",
 			},
 		},
 		IpConfigurations: []hcn.IpConfig{
