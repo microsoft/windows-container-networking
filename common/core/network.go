@@ -128,7 +128,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		return fmt.Errorf("Cannot create Endpoint without a Namespace")
 	}
 
-	nwConfig, err := getOrCreateNetwork(plugin, networkInfo, cniConfig, args.IfName)
+	nwConfig, err := getOrCreateNetwork(plugin, networkInfo, cniConfig)
 	if err != nil {
 		// Error was logged by getNetwork.
 		return nil
@@ -220,15 +220,13 @@ func allocateIpam(
 func getOrCreateNetwork(
 	plugin *netPlugin,
 	networkInfo *network.NetworkInfo,
-	cniConfig *cni.NetworkConfig,
-	interfaceName string) (*network.NetworkInfo, error) {
+	cniConfig *cni.NetworkConfig) (*network.NetworkInfo, error) {
 	// Check whether the network already exists.
 	nwConfig, err := plugin.nm.GetNetworkByName(cniConfig.Name)
 	if err != nil {
 		// Network does not exist.
 		logrus.Infof("[cni-net] Creating network.")
 
-		networkInfo.InterfaceName = interfaceName
 		nwConfig, err = plugin.nm.CreateNetwork(networkInfo)
 		if err != nil {
 			logrus.Errorf("[cni-net] Failed to create network, err:%v.", err)
