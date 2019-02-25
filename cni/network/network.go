@@ -12,7 +12,6 @@ import (
 	"github.com/Microsoft/windows-container-networking/network"
 	"github.com/sirupsen/logrus"
 
-	"context"
 	"github.com/containernetworking/cni/pkg/invoke"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -153,7 +152,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	}
 
 	// Check for missing namespace
-	if epInfo.NamespaceID == "" {
+	if args.Netns == "" {
 		logrus.Errorf("[cni-net] Endpoint missing Namsepace, cannot Add. [%v].", epInfo)
 		return fmt.Errorf("Cannot create Endpoint without a Namespace")
 	}
@@ -167,7 +166,6 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		// Network does not exist.
 		logrus.Infof("[cni-net] Creating network.")
 
-		networkInfo.InterfaceName = args.IfName
 		nwConfig, err = plugin.nm.CreateNetwork(networkInfo)
 		if err != nil {
 			logrus.Errorf("[cni-net] Failed to create network, err:%v.", err)
@@ -204,7 +202,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	// Apply the Network Policy for Endpoint
 	epInfo.Policies = append(epInfo.Policies, networkInfo.Policies...)
 
-	epInfo, err = plugin.nm.CreateEndpoint(hnsNetworkId, epInfo)
+	epInfo, err = plugin.nm.CreateEndpoint(hnsNetworkId, epInfo, args.Netns)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to create endpoint, err:%v.", err)
 		return nil
