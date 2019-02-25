@@ -47,10 +47,6 @@ func (endpoint *EndpointInfo) GetHNSEndpointConfig() *hcsshim.HNSEndpoint {
 	if endpoint.Gateway != nil {
 		gwAddr = endpoint.Gateway.String()
 	}
-	// Create Namespace object.
-	hnsns := &hcsshim.Namespace{
-		ID: endpoint.NamespaceID,
-	}
 	hnsep := &hcsshim.HNSEndpoint{
 		Name:           endpoint.Name,
 		Id:             endpoint.ID,
@@ -60,7 +56,6 @@ func (endpoint *EndpointInfo) GetHNSEndpointConfig() *hcsshim.HNSEndpoint {
 		MacAddress:     macAddr,
 		GatewayAddress: gwAddr,
 		IPAddress:      endpoint.IPAddress,
-		Namespace:      hnsns,
 		Policies:       getHNSEndpointPolicies(endpoint.Policies),
 	}
 

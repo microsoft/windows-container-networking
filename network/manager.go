@@ -30,7 +30,7 @@ type Manager interface {
 	GetNetwork(networkID string) (*NetworkInfo, error)
 	GetNetworkByName(networkName string) (*NetworkInfo, error)
 	// Endpoint
-	CreateEndpoint(networkID string, epInfo *EndpointInfo) (*EndpointInfo, error)
+	CreateEndpoint(networkID string, epInfo *EndpointInfo, namespaceID string) (*EndpointInfo, error)
 	DeleteEndpoint(endpointID string) error
 	GetEndpoint(endpointID string) (*EndpointInfo, error)
 	GetEndpointByName(endpointName string) (*EndpointInfo, error)
@@ -162,7 +162,7 @@ func (nm *networkManager) GetNetworkByName(networkName string) (*NetworkInfo, er
 //
 
 // CreateEndpoint creates a new container endpoint.
-func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo) (*EndpointInfo, error) {
+func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo, namespaceID string) (*EndpointInfo, error) {
 	nm.Lock()
 	defer nm.Unlock()
 
@@ -185,8 +185,11 @@ func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo)
 	}
 
 	// Add this endpoint to Namespace
-	hcn.AddNamespaceEndpoint(hnsEndpointConfig.Namespace.ID, hnsendpoint.Id)
-
+	hcn.AddNamespaceEndpoint(namespaceID, hnsendpoint.Id)
+	hnsendpoint, err = hcsshim.GetHNSEndpointByID(hnsendpoint.Id)
+	if err != nil {
+		return nil, err
+	}
 	return GetEndpointInfo(hnsendpoint), err
 }
 
