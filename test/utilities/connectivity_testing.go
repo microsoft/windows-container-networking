@@ -7,7 +7,6 @@ import (
 	"github.com/Microsoft/hcsshim"
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/Microsoft/windows-container-networking/cni"
-	"github.com/Microsoft/windows-container-networking/test/container"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	"net"
@@ -18,8 +17,6 @@ import (
 )
 
 const (
-	ImageNano         = "microsoft/nanoserver"
-	ImageWsc          = "microsoft/windowsservercore"
 	DefaultNetworkID  = "2a79c333-0f85-4aa7-bb32-8dc76ca1fd46"
 	dummyID           = "12345"
 	defaultCniVersion = "0.2.0"
@@ -215,10 +212,10 @@ type PluginUnitTest struct {
 	ContainerId    string
 	CniCmdArgs     cniSkel.CmdArgs
 	Namespace      *hcn.HostComputeNamespace
-	EpName         string
 	DummyContainer bool
 	NeedGW         bool
 }
+
 
 func (pt *PluginUnitTest) Create(netJson []byte, network *hcn.HostComputeNetwork, expectedPolicies []hcn.EndpointPolicy,
 	expectedSearch []string, expectedNameservers []string, cid string) {
@@ -248,12 +245,6 @@ func (pt *PluginUnitTest) Setup(t *testing.T) error {
 			return err
 		}
 	}
-	pt.Namespace, err = CreateNamespace()
-	if err != nil {
-		t.Errorf("Error while creating namespace: %v", err)
-		return err
-	}
-	pt.initCmdArgs(t)
 	t.Log("Succeeded!")
 	return nil
 }
@@ -265,31 +256,26 @@ func (pt *PluginUnitTest) Teardown(t *testing.T) error {
 		t.Errorf("Error while deleting network:  %v ", err)
 		return err
 	}
-	err = pt.Namespace.Delete()
-	if err != nil {
-		t.Errorf("Error while delete namespace: %v", err)
-		return err
-	}
 	t.Log("Succeeded!")
 	return nil
 }
 
-func (pt *PluginUnitTest) initCmdArgs(t *testing.T) {
-	pt.CniCmdArgs = CreateArgs(pt.ContainerId, pt.Namespace.Id, pt.NetConfJson)
-	pt.EpName = pt.ContainerId + "_" + pt.Network.Name
+func (pt *PluginUnitTest) initCmdArgs(t *testing.T, ci *ContainerInfo) {
+	pt.CniCmdArgs = CreateArgs(ci.ContainerId, ci.Namespace.Id, pt.NetConfJson)
 }
 
-func (pt *PluginUnitTest) addCase(t *testing.T) error {
+func (pt *PluginUnitTest) addCase(t *testing.T, ci *ContainerInfo) error {
 	var err error
+	epName := ci.ContainerId + "_" + pt.Network.Name
 	AddCase(pt.CniCmdArgs)
-	pt.Namespace, err = hcn.GetNamespaceByID(pt.Namespace.Id)
+	ci.Namespace, err = hcn.GetNamespaceByID(ci.Namespace.Id)
 	if err != nil {
-		t.Errorf("Error while getting namespace with ID \"%v\" : %v", pt.Namespace.Id, err)
+		t.Errorf("Error while getting namespace with ID \"%v\" : %v", ci.Namespace.Id, err)
 		return err
 	}
-	pt.Endpoint, err = hcn.GetEndpointByName(pt.EpName)
+	ci.Endpoint, err = hcn.GetEndpointByName(epName)
 	if err != nil {
-		t.Errorf("Error while getting endpoint \"%v\" : %v", pt.EpName, err)
+		t.Errorf("Error while getting endpoint \"%v\" : %v", epName, err)
 		return err
 	}
 	return nil
@@ -322,91 +308,76 @@ func comparePolicyLists(policyList1 []hcn.EndpointPolicy, policyList2 []hcn.Endp
 	}()
 }
 
-func (pt *PluginUnitTest) verifyAddEndpointProperties(t *testing.T) {
-	if !caseBlindStringComp(&pt.Endpoint.HostComputeNamespace, &pt.Namespace.Id) {
+func (pt *PluginUnitTest) verifyAddEndpointProperties(t *testing.T, ci *ContainerInfo) {
+	if !caseBlindStringComp(&ci.Endpoint.HostComputeNamespace, &ci.Namespace.Id) {
 		t.Errorf("Endpoint namespace does not match Namespace ID.")
 	}
-	if !caseBlindStringComp(&pt.Endpoint.HostComputeNetwork, &pt.Network.Id) {
+	if !caseBlindStringComp(&ci.Endpoint.HostComputeNetwork, &pt.Network.Id) {
 		t.Errorf("Endpoint network does not match Network ID.")
 	}
-	if !comparePolicyLists(pt.Endpoint.Policies, pt.Policies) {
+	if !comparePolicyLists(ci.Endpoint.Policies, pt.Policies) {
 		t.Errorf("Endpoint policies do not match Expected Policies.")
 	}
 }
 
-func (pt *PluginUnitTest) verifyAddNamespaceProperties(t *testing.T) {
-	EpNamespace := string(pt.Namespace.Resources[0].Data)
-	if !strings.Contains(EpNamespace, strings.ToUpper(pt.Endpoint.Id)) {
+func (pt *PluginUnitTest) verifyAddNamespaceProperties(t *testing.T, ci *ContainerInfo) {
+	EpNamespace := string(ci.Namespace.Resources[0].Data)
+	if !strings.Contains(EpNamespace, strings.ToUpper(ci.Endpoint.Id)) {
 		t.Errorf("Namespace does not contain a reference to endpoint.")
 	}
 }
-
-func (pt *PluginUnitTest) RunContainerConnectivityTest(t *testing.T, optionalIp string) error {
-
-	if pt.DummyContainer {
-		t.Logf("Dummy Container, skipping connectivity...")
-		return nil
-	}
-
-	t.Logf("Testing Container Connectivity ...")
-
-	c, err := hcsshim.OpenContainer(pt.ContainerId)
-
-	if err != nil {
-		t.Errorf("Container \"%v\" Not Found: %v", pt.ContainerId, err)
-		return err
-	}
-
-	pingList := []string{"172.16.12.5"}
-	for _, val := range pingList {
-		err = contTest.PingTest(c, val)
-		if err != nil {
-			t.Errorf("PingTest (%v) Failed: %v", val, err)
-			return err
-		}
-	}
-
-	contTest.PingFromHost(pt.Endpoint.IpConfigurations[0].IpAddress)
-	if err != nil {
-		t.Errorf("PingFromHost Failed: %v", err)
-		return err
-	}
-
-	err = contTest.CurlTest(c, "www.google.com")
-	if err != nil {
-		t.Errorf("CurlTest Failed: %v", err)
-		return err
-	}
-
-	if optionalIp != "" {
-		err = contTest.PingTest(c, optionalIp)
-		if err != nil {
-			t.Errorf("PingTest (Optional Container) Failed: %v", err)
-			return err
-		}
-	}
-	t.Logf("Completed!")
-
-	return nil
-}
-
-func (pt *PluginUnitTest) RunAddTest(t *testing.T) error {
+func (pt *PluginUnitTest) RunAddTest(t *testing.T, ci *ContainerInfo) error {
 	t.Logf("Executing Add for Network Plugin ...")
-	err := pt.addCase(t)
+	pt.initCmdArgs(t, ci)
+	err := pt.addCase(t, ci)
 	if err != nil {
 		return err
 	}
 	t.Logf("Succeeded!")
 
 	t.Logf("Verifying Endpoint Properties ...")
-	pt.verifyAddEndpointProperties(t)
+	pt.verifyAddEndpointProperties(t, ci)
 	t.Logf("Completed!")
 
 	t.Logf("Verifying Namespace Properties ...")
-	pt.verifyAddNamespaceProperties(t)
+	pt.verifyAddNamespaceProperties(t, ci)
 	t.Logf("Completed!")
 
 	return nil
+}
+
+func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers int) {
+	pt.Setup(t)
+
+	ctList := []*ContainerInfo{}
+	for i := 0; i < numContainers; i++ {
+		cid := fmt.Sprintf("Test%sContainer%d", string(pt.Network.Type), i)
+		ct := &ContainerInfo{
+			ContainerId: cid,
+			Image:       ImageNano,
+		}
+		ct.Setup(t)
+		err := pt.RunAddTest(t, ct)
+		if err != nil {
+			t.Errorf("Failed Add Comand: %v", err)
+		}
+		ctList = append(ctList, ct)
+	}
+	
+	for i, ctx := range ctList {
+		if (i == 0) {
+			continue
+		}
+		err := ctList[0].RunContainerConnectivityTest(t, ctx.Endpoint.IpConfigurations[0].IpAddress)
+		if err != nil {
+			t.Errorf("Failed Container Connectivity: %v", err)
+		}
+	}
+	
+	pt.Teardown(t)
+	for _, ct := range ctList {
+		ct.Teardown(t)
+	}
 }
 
 func MakeTestStruct(t *testing.T, testNetwork *hcn.HostComputeNetwork, pluginType string, epPols bool, needGW bool, cid string) *PluginUnitTest {
