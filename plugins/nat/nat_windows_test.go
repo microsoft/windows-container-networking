@@ -3,7 +3,6 @@ package main_test
 import (
 	"github.com/Microsoft/windows-container-networking/test/utilities"
 	"github.com/Microsoft/hcsshim/hcn"
-	"github.com/Microsoft/windows-container-networking/test/container"
 	"testing"
 )
 
