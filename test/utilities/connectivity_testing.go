@@ -216,7 +216,6 @@ type PluginUnitTest struct {
 	NeedGW         bool
 }
 
-
 func (pt *PluginUnitTest) Create(netJson []byte, network *hcn.HostComputeNetwork, expectedPolicies []hcn.EndpointPolicy,
 	expectedSearch []string, expectedNameservers []string, cid string) {
 	pt.NetConfJson = netJson
@@ -363,9 +362,9 @@ func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers i
 		}
 		ctList = append(ctList, ct)
 	}
-	
+
 	for i, ctx := range ctList {
-		if (i == 0) {
+		if i == 0 {
 			continue
 		}
 		err := ctList[0].RunContainerConnectivityTest(t, ctx.Endpoint.IpConfigurations[0].IpAddress)
@@ -373,7 +372,7 @@ func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers i
 			t.Errorf("Failed Container Connectivity: %v", err)
 		}
 	}
-	
+
 	pt.Teardown(t)
 	for _, ct := range ctList {
 		ct.Teardown(t)

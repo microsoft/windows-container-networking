@@ -5,7 +5,7 @@ package network
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"github.com/Microsoft/hcsshim/hcn"
 	"strings"
 )
@@ -24,7 +24,7 @@ type Policy struct {
 }
 
 // GetPortMappingPolicy creates an HCN PortMappingPolicy and stores it in CNI Policy.
-func GetPortMappingPolicy(externalPort int, internalPort int, protocol string) Policy {
+func GetPortMappingPolicy(externalPort int, internalPort int, protocol string) (Policy, error) {
 	var protocolInt uint32
 	switch strings.ToLower(protocol) {
 	case "tcp":
@@ -43,7 +43,7 @@ func GetPortMappingPolicy(externalPort int, internalPort int, protocol string) P
 		protocolInt = 2
 		break
 	default:
-		panic(fmt.Errorf("invalid protocol supplied to port mapping policy"))
+		return Policy{}, errors.New("invalid protocol supplied to port mapping policy")
 	}
 
 	portMappingPolicy := hcn.PortMappingPolicySetting{
@@ -61,5 +61,5 @@ func GetPortMappingPolicy(externalPort int, internalPort int, protocol string) P
 	return Policy{
 		Type: EndpointPolicy,
 		Data: rawData,
-	}
+	}, nil
 }

@@ -14,7 +14,6 @@ func CreateNatTestNetwork() *hcn.HostComputeNetwork {
 
 
 func TestNatCmdAdd(t *testing.T) {
-	t.Skip("Nat test is disabled for now.")
 	testNetwork := CreateNatTestNetwork()
 	pt := util.MakeTestStruct(t, testNetwork, "nat", false, false,"")
 	pt.RunBasicConnectivityTest(t, 2)
