@@ -5,7 +5,6 @@ import (
 	"testing"
 	"github.com/Microsoft/hcsshim/hcn"
 	"encoding/json"
-	"github.com/Microsoft/windows-container-networking/test/container"
 )
 
 func GetVsidPol() []json.RawMessage {

@@ -5,8 +5,7 @@ package core
 
 import (
 	"context"
-	"fmt"
-
+	"errors"
 	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/common"
 	"github.com/Microsoft/windows-container-networking/network"
@@ -102,7 +101,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to parse network configuration, err:%v.", err)
-		return nil
+		return err
 	}
 
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
@@ -110,28 +109,38 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	// Convert cniConfig to NetworkInfo
 	// We don't set namespace, setting namespace is not valid for EP creation
 	networkInfo := cniConfig.GetNetworkInfo()
-	epInfo := cniConfig.GetEndpointInfo(
-		networkInfo, args.ContainerID, "", k8sNamespace)
+	epInfo, err := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID,
+		"", k8sNamespace)
 
+	if err != nil {
+		return err
+	}
 	// If Ipam was provided, allocate a pool and obtain V4 address
 	if cniConfig.Ipam.Type != "" {
 		err = allocateIpam(networkInfo, epInfo, cniConfig)
 		if err != nil {
 			// Error was logged by allocateIpam.
-			return nil
+			return err
 		}
 	}
 
 	// Check for missing namespace
 	if args.Netns == "" {
 		logrus.Errorf("[cni-net] Missing Namespace, cannot Add. [%v].", epInfo)
-		return fmt.Errorf("Cannot create Endpoint without a Namespace")
+		return errors.New("cannot create endpoint without a namespace")
 	}
 
 	nwConfig, err := getOrCreateNetwork(plugin, networkInfo, cniConfig)
 	if err != nil {
 		// Error was logged by getNetwork.
-		return nil
+		/*
+			res := cniTypes.Error{
+				Code: 66,
+				Msg: "failure in cni",
+				Details: err.Error(),
+			}*/
+		//res.Print()
+		return err
 	}
 
 	hnsEndpoint, err := plugin.nm.GetEndpointByName(epInfo.Name)
@@ -159,7 +168,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	epInfo, err = plugin.nm.CreateEndpoint(nwConfig.ID, epInfo, args.Netns)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to create endpoint, err:%v.", err)
-		return nil
+		return err
 	}
 
 	result := cni.GetResult020(nwConfig, epInfo)
@@ -244,7 +253,7 @@ func getOrCreateNetwork(
 // Delete handles CNI delete commands.
 // args.Path - Location of the config file.
 func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
-	logrus.Debugf("[cni-net] Processing DEL command with args {ContainerID:%v Netns:%v IfName:%v Args:%v Path:%v}.",
+	logrus.Debugf("[cni-net] Processing DEL command with args {ContainerID:%v Netns:%v IfName:%v Args:%v Path:%v}",
 		args.ContainerID, args.Netns, args.IfName, args.Args, args.Path)
 
 	podConfig, err := cni.ParseCniArgs(args.Args)
@@ -255,26 +264,29 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	// Parse network configuration from stdin.
 	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
 	if err != nil {
-		logrus.Errorf("[cni-net] Failed to parse network configuration, err:%v.", err)
-		return nil
+		logrus.Errorf("[cni-net] Failed to parse network configuration, err:%v", err)
+		return err
 	}
 
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
 	// Convert cniConfig to NetworkInfo
 	networkInfo := cniConfig.GetNetworkInfo()
-	epInfo := cniConfig.GetEndpointInfo(
-		networkInfo, args.ContainerID, args.Netns, k8sNamespace)
+	epInfo, err := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID,
+		args.Netns, k8sNamespace)
+	if err != nil {
+		return err
+	}
 	endpointInfo, err := plugin.nm.GetEndpointByName(epInfo.Name)
 	if err != nil {
-		logrus.Errorf("[cni-net] Failed to find endpoint, err:%v.", err)
-		return nil
+		logrus.Errorf("[cni-net] Failed to find endpoint, err:%v", err)
+		return err
 	}
 
 	// Delete the endpoint.
 	err = plugin.nm.DeleteEndpoint(endpointInfo.ID)
 	if err != nil {
-		logrus.Errorf("[cni-net] Failed to delete endpoint, err:%v.", err)
-		return nil
+		logrus.Errorf("[cni-net] Failed to delete endpoint, err:%v", err)
+		return err
 	}
 	logrus.Debugf("[cni-net] DEL succeeded.")
 	return nil

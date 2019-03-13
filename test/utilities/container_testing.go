@@ -8,21 +8,21 @@ import (
 )
 
 const (
-	ImageNano  = "mcr.microsoft.com/windows/nanoserver:1809"
-	ImageWsc   = "microsoft/windowsservercore"
+	ImageNano = "mcr.microsoft.com/windows/nanoserver:1809"
+	ImageWsc  = "microsoft/windowsservercore"
 )
 
 type ContainerInfo struct {
-	ContainerId    string	
-	Endpoint       *hcn.HostComputeEndpoint
-	Namespace      *hcn.HostComputeNamespace
-	Image          string
-	clean          func()
+	ContainerId string
+	Endpoint    *hcn.HostComputeEndpoint
+	Namespace   *hcn.HostComputeNamespace
+	Image       string
+	clean       func()
 }
 
 func (ci *ContainerInfo) Setup(t *testing.T) error {
 	ns := hcn.HostComputeNamespace{}
-	var err error 
+	var err error
 	ci.Namespace, err = ns.Create()
 	if err != nil {
 		t.Errorf("error while hcn namespace create: %v", err)
@@ -31,7 +31,7 @@ func (ci *ContainerInfo) Setup(t *testing.T) error {
 	ci.clean, err = contTest.CreateContainer(t, ci.ContainerId, ci.Image, ci.Namespace.Id)
 	return nil
 }
-func (ci *ContainerInfo) Teardown(t *testing.T) error {		
+func (ci *ContainerInfo) Teardown(t *testing.T) error {
 	ci.clean()
 	err := ci.Namespace.Delete()
 	if err != nil {

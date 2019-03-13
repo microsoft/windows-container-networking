@@ -127,6 +127,12 @@ func CallPlugin(plugin PluginApi, cmd string, args *cniSkel.CmdArgs, config *Net
 	config.Ipam.Type = savedType
 
 	if err != nil {
+		res := cniTypes.Error{
+			Code:    66,
+			Msg:     "failure in cni",
+			Details: err.Error(),
+		}
+		res.Print()
 		return nil, err
 	}
 
@@ -233,7 +239,7 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 // GetEndpointInfo constructs endpoint info using endpoint id, containerid and netns
 func (config *NetworkConfig) GetEndpointInfo(
 	networkinfo *network.NetworkInfo,
-	containerID string, netNs string, podK8sNamespace string) *network.EndpointInfo {
+	containerID string, netNs string, podK8sNamespace string) (*network.EndpointInfo, error) {
 	containerIDToUse := containerID
 	epInfo := &network.EndpointInfo{
 		Name:        containerIDToUse + "_" + networkinfo.ID,
@@ -262,12 +268,15 @@ func (config *NetworkConfig) GetEndpointInfo(
 	runtimeConf := config.RuntimeConfig
 	logrus.Debugf("Parsing port mappings from %+v", runtimeConf.PortMappings)
 	for _, mapping := range runtimeConf.PortMappings {
-		policy := network.GetPortMappingPolicy(mapping.HostPort, mapping.ContainerPort, mapping.Protocol)
+		policy, err := network.GetPortMappingPolicy(mapping.HostPort, mapping.ContainerPort, mapping.Protocol)
+		if err != nil {
+			return nil, fmt.Errorf("failed during GetEndpointInfo from netconf: %v", err)
+		}
 		logrus.Debugf("Created raw policy from mapping: %+v --- %+v", mapping, policy)
 		epInfo.Policies = append(epInfo.Policies, policy)
 	}
 
-	return epInfo
+	return epInfo, nil
 }
 
 // GetResult gets the result object
