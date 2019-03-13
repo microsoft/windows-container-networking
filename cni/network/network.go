@@ -5,7 +5,7 @@ package network
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/common"
@@ -102,7 +102,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to parse network configuration, err:%v.", err)
-		return nil
+		return err
 	}
 
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
@@ -118,13 +118,13 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		result, err := invoke.DelegateAdd(context.TODO(), cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
 		if err != nil {
 			logrus.Infof("[cni-net] Failed to allocate pool, err:%v.", err)
-			return nil
+			return err
 		}
 
 		resultImpl, err = cniTypesImpl.GetResult(result)
 		if err != nil {
 			logrus.Infof("[cni-net] Failed to allocate pool, err:%v.", err)
-			return nil
+			return err
 		}
 
 		logrus.Infof("[cni-net] IPAM plugin returned result %v.", resultImpl)
@@ -154,7 +154,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	// Check for missing namespace
 	if args.Netns == "" {
 		logrus.Errorf("[cni-net] Endpoint missing Namsepace, cannot Add. [%v].", epInfo)
-		return fmt.Errorf("Cannot create Endpoint without a Namespace")
+		return errors.New("Cannot create Endpoint without a Namespace")
 	}
 
 	// Name of the Network that would be created. HNS allows to create multiple networks with duplicate name
@@ -169,7 +169,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		nwConfig, err = plugin.nm.CreateNetwork(networkInfo)
 		if err != nil {
 			logrus.Errorf("[cni-net] Failed to create network, err:%v.", err)
-			return nil
+			return err
 		}
 
 		hnsNetworkId = nwConfig.ID
@@ -191,8 +191,6 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 			logrus.Debugf("[cni-net] Endpoint exists on same network, ignoring Add.  [%v].", epInfo)
 			result := cni.GetResult020(nwConfig, hnsEndpoint)
 			result.Print()
-			//logrus.Debugf(result.String())
-
 			return nil
 		}
 	} else {
@@ -205,7 +203,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	epInfo, err = plugin.nm.CreateEndpoint(hnsNetworkId, epInfo, args.Netns)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to create endpoint, err:%v.", err)
-		return nil
+		return err
 	}
 
 	result := cni.GetResult020(nwConfig, epInfo)
@@ -229,7 +227,7 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to parse network configuration, err:%v.", err)
-		return nil
+		return err
 	}
 
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
@@ -240,14 +238,14 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	endpointInfo, err := plugin.nm.GetEndpointByName(epInfo.Name)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to find endpoint, err:%v.", err)
-		return nil
+		return err
 	}
 
 	// Delete the endpoint.
 	err = plugin.nm.DeleteEndpoint(endpointInfo.ID)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to delete endpoint, err:%v.", err)
-		return nil
+		return err
 	}
 	logrus.Debugf("[cni-net] DEL succeeded.")
 	return nil
