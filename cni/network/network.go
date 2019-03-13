@@ -4,12 +4,13 @@
 package network
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/Microsoft/windows-container-networking/cni"
+	"github.com/Microsoft/windows-container-networking/common"
+	"github.com/Microsoft/windows-container-networking/network"
 	"github.com/sirupsen/logrus"
-	"visualstudio.com/containernetworking/cni/cni"
-	"visualstudio.com/containernetworking/cni/common"
-	"visualstudio.com/containernetworking/cni/network"
 
 	"github.com/containernetworking/cni/pkg/invoke"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
@@ -114,7 +115,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		var result cniTypes.Result
 		var resultImpl *cniTypesImpl.Result
 
-		result, err := invoke.DelegateAdd(cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
+		result, err := invoke.DelegateAdd(context.TODO(), cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
 		if err != nil {
 			logrus.Infof("[cni-net] Failed to allocate pool, err:%v.", err)
 			return nil
@@ -151,7 +152,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	}
 
 	// Check for missing namespace
-	if epInfo.NamespaceID == "" {
+	if args.Netns == "" {
 		logrus.Errorf("[cni-net] Endpoint missing Namsepace, cannot Add. [%v].", epInfo)
 		return fmt.Errorf("Cannot create Endpoint without a Namespace")
 	}
@@ -165,7 +166,6 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		// Network does not exist.
 		logrus.Infof("[cni-net] Creating network.")
 
-		networkInfo.InterfaceName = args.IfName
 		nwConfig, err = plugin.nm.CreateNetwork(networkInfo)
 		if err != nil {
 			logrus.Errorf("[cni-net] Failed to create network, err:%v.", err)
@@ -202,7 +202,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	// Apply the Network Policy for Endpoint
 	epInfo.Policies = append(epInfo.Policies, networkInfo.Policies...)
 
-	epInfo, err = plugin.nm.CreateEndpoint(hnsNetworkId, epInfo)
+	epInfo, err = plugin.nm.CreateEndpoint(hnsNetworkId, epInfo, args.Netns)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to create endpoint, err:%v.", err)
 		return nil

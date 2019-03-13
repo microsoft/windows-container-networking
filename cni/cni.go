@@ -9,11 +9,11 @@ import (
 	"net"
 	"strings"
 
+	network "github.com/Microsoft/windows-container-networking/network"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	cniTypes020 "github.com/containernetworking/cni/pkg/types/020"
 	"github.com/sirupsen/logrus"
-	network "visualstudio.com/containernetworking/cni/network"
 )
 
 const (
@@ -185,11 +185,10 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 	}
 
 	ninfo := &network.NetworkInfo{
-		ID:            config.Name,
-		Name:          config.Name,
-		Type:          network.NetworkType(config.Name),
-		Subnets:       subnets,
-		InterfaceName: "",
+		ID:      config.Name,
+		Name:    config.Name,
+		Type:    network.NetworkType(config.Name),
+		Subnets: subnets,
 		DNS: network.DNSInfo{
 			Servers: config.DNS.Nameservers,
 			Suffix:  strings.Join(config.DNS.Search, ","),
@@ -215,7 +214,6 @@ func (config *NetworkConfig) GetEndpointInfo(
 	epInfo := &network.EndpointInfo{
 		Name:        containerIDToUse + "_" + networkinfo.ID,
 		NetworkID:   networkinfo.ID,
-		NamespaceID: netNs,
 		ContainerID: containerID,
 	}
 

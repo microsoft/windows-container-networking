@@ -166,7 +166,7 @@ func (info *NetworkInfo) GetHostComputeNetworkConfig() *hcn.HostComputeNetwork {
 			},
 		},
 		Dns: hcn.Dns{
-			Suffix:     info.DNS.Suffix,
+			Search:     strings.Split(info.DNS.Suffix, ","),
 			ServerList: info.DNS.Servers,
 		},
 		SchemaVersion: hcn.SchemaVersion{
@@ -192,7 +192,7 @@ func GetNetworkInfoFromHostComputeNetwork(hcnNetwork *hcn.HostComputeNetwork) *N
 		InterfaceName: GetNetAdapterNameNetworkPolicySetting(hcnNetwork.Policies),
 		Subnets:       subnets,
 		DNS: DNSInfo{
-			Suffix:  hcnNetwork.Dns.Suffix,
+			Suffix:  strings.Join(hcnNetwork.Dns.Search, ","),
 			Servers: hcnNetwork.Dns.ServerList,
 		},
 		Policies: GetNetworkPoliciesFromHostComputeNetworkPolicies(hcnNetwork.Policies),
