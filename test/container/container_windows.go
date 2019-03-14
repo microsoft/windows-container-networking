@@ -1,37 +1,37 @@
 package contTest
 
 import (
-	"github.com/Microsoft/hcsshim"
-	"github.com/Microsoft/hcsshim/test/functional/utilities"
-	"github.com/opencontainers/runtime-tools/generate"
-	runhcs "github.com/Microsoft/hcsshim/pkg/go-runhcs"
-	"os"
-	"os/exec"
-	"fmt"
 	"bytes"
-	"strings"
-	"testing"
-	"encoding/json"
 	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/Microsoft/go-winio/vhd"
+	"github.com/Microsoft/hcsshim"
+	runhcs "github.com/Microsoft/hcsshim/pkg/go-runhcs"
+	"github.com/Microsoft/hcsshim/test/functional/utilities"
+	runc "github.com/containerd/go-runc"
+	"github.com/opencontainers/runtime-tools/generate"
+	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 	"io"
 	"io/ioutil"
-	"github.com/pkg/errors"
+	"os"
+	"os/exec"
 	"path/filepath"
-	runc "github.com/containerd/go-runc"
-	"golang.org/x/sync/errgroup"
-	"github.com/Microsoft/go-winio/vhd"
 	"strconv"
+	"strings"
+	"testing"
 )
 
 const (
-	ExpectedPingResult = "Packets: Sent = 4, Received = 4, Lost = 0"
+	ExpectedPingResult  = "Packets: Sent = 4, Received = 4, Lost = 0"
 	SecondaryPingResult = "Packets: Sent = 4, Received = 3, Lost = 1"
-	ExpectedCurlResult = "HTTP/1.1 200 OK"
+	ExpectedCurlResult  = "HTTP/1.1 200 OK"
 )
 
-func PingTest(c hcsshim.Container, ip string) (error) {
+func PingTest(c hcsshim.Container, ip string) error {
 	p, err := c.CreateProcess(&hcsshim.ProcessConfig{
-		CommandLine:  fmt.Sprintf("ping -w 8000 -n 4 %s", ip),
+		CommandLine:      fmt.Sprintf("ping -w 8000 -n 4 %s", ip),
 		CreateStdInPipe:  true,
 		CreateStdOutPipe: true,
 		CreateStdErrPipe: true,
@@ -49,9 +49,9 @@ func PingTest(c hcsshim.Container, ip string) (error) {
 	}
 }
 
-func CurlTest(c  hcsshim.Container, host string) (error) {
+func CurlTest(c hcsshim.Container, host string) error {
 	p, err := c.CreateProcess(&hcsshim.ProcessConfig{
-		CommandLine:  fmt.Sprintf("curl -IL %s --http1.1", host),
+		CommandLine:      fmt.Sprintf("curl -IL %s --http1.1", host),
 		CreateStdInPipe:  true,
 		CreateStdOutPipe: true,
 		CreateStdErrPipe: true,
@@ -68,7 +68,7 @@ func CurlTest(c  hcsshim.Container, host string) (error) {
 	}
 }
 
-func PingFromHost(containerIp string) (error) {
+func PingFromHost(containerIp string) error {
 	out, err := exec.Command("ping", "-w", "8000", "-n", "4", containerIp).Output()
 	if err != nil {
 		return err
@@ -94,7 +94,7 @@ func GetOutput(p hcsshim.Process) string {
 
 const image = "mcr.microsoft.com/windows/nanoserver:1809"
 
-func CreateContainer(t *testing.T, ContainerName string, imageName string, namespace string) (func(), error)  {
+func CreateContainer(t *testing.T, ContainerName string, imageName string, namespace string) (func(), error) {
 
 	nilfunc := func() {}
 	var err error
@@ -103,7 +103,6 @@ func CreateContainer(t *testing.T, ContainerName string, imageName string, names
 	bundle := testutilities.CreateTempDir(t)
 	scratch := testutilities.CreateTempDir(t)
 
-
 	// Generate the Spec
 	g, err := generate.New("windows")
 	if err != nil {
@@ -111,10 +110,9 @@ func CreateContainer(t *testing.T, ContainerName string, imageName string, names
 		return nilfunc, err
 	}
 
-	g.SetProcessArgs([]string{"cmd"}, )
+	g.SetProcessArgs([]string{"cmd"})
 	g.SetProcessTerminal(true)
-	
-	
+
 	g.SetWindowsNetworkNamespace(namespace)
 
 	layers := testutilities.LayerFolders(t, imageName)
@@ -188,12 +186,10 @@ func CreateContainer(t *testing.T, ContainerName string, imageName string, names
 			t.Errorf("additional logs at bundle path: %v", bundle)
 		}
 	}
-	return clean, nil 
+	return clean, nil
 }
 
 var _ = (runc.IO)(&testIO{})
-
-
 
 type testIO struct {
 	g *errgroup.Group
@@ -203,10 +199,7 @@ type testIO struct {
 
 	er, ew  *os.File
 	errBuff *bytes.Buffer
-
 }
-
-
 
 func newTestIO(t *testing.T) *testIO {
 
@@ -248,32 +241,22 @@ func newTestIO(t *testing.T) *testIO {
 	return tio
 }
 
-
-
 func (t *testIO) Stdin() io.WriteCloser {
 	return nil
 }
-
-
 
 func (t *testIO) Stdout() io.ReadCloser {
 	return t.or
 }
 
-
-
 func (t *testIO) Stderr() io.ReadCloser {
 	return t.er
 }
-
-
 
 func (t *testIO) Set(cmd *exec.Cmd) {
 	cmd.Stdout = t.ow
 	cmd.Stderr = t.ew
 }
-
-
 
 func (t *testIO) Close() error {
 	var err error
@@ -288,15 +271,11 @@ func (t *testIO) Close() error {
 	return err
 }
 
-
-
 func (t *testIO) CloseAfterStart() error {
 	t.ow.Close()
 	t.ew.Close()
 	return nil
 }
-
-
 
 func (t *testIO) Wait() error {
 	return t.g.Wait()
@@ -314,4 +293,3 @@ func readPidFile(path string) (int, error) {
 	}
 	return p, nil
 }
-

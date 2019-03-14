@@ -62,7 +62,7 @@ func (info *NetworkInfo) GetHostComputeNetworkConfig() *hcn.HostComputeNetwork {
 	ipams := []hcn.Ipam{}
 	if len(subnets) > 0 {
 		ipams = []hcn.Ipam{
-			hcn.Ipam{
+			{
 				Type:    "Static",
 				Subnets: subnets,
 			},
@@ -142,7 +142,7 @@ func (subnet *SubnetInfo) GetHostComputeSubnetConfig() *hcn.Subnet {
 	return &hcn.Subnet{
 		IpAddressPrefix: ipAddr,
 		Routes: []hcn.Route{
-			hcn.Route{
+			{
 				NextHop:           gwAddr,
 				DestinationPrefix: destPrefix,
 			},

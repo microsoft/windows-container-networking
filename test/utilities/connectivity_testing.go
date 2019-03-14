@@ -127,12 +127,12 @@ func CreateGatewayEp(networkId string, ipAddress string) error {
 		Name:               "GwEp",
 		HostComputeNetwork: networkId,
 		IpConfigurations: []hcn.IpConfig{
-			hcn.IpConfig{
+			{
 				IpAddress:    ipAddress,
 				PrefixLength: 0,
 			}},
 		Routes: []hcn.Route{
-			hcn.Route{
+			{
 				NextHop:           "0.0.0.0",
 				DestinationPrefix: "0.0.0.0/0",
 			}},
