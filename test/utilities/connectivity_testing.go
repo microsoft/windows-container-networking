@@ -64,23 +64,27 @@ func getDefaultEndpointPolicies() []hcn.EndpointPolicy {
 	return []hcn.EndpointPolicy{outBoundNatPol, sdnRoutePol, paPol}
 }
 
-func CreateNetworkConf(cniVersion string, name string, pluginType string,
-	dns *cniTypes.DNS, addArgs []cni.KVP) *cni.NetworkConfig {
-	ip, _, _ := net.ParseCIDR("10.0.0.2/32")
+func CreateNetConfIpam(cidr string) cni.IpamConfig {
+	gwIp, subnet, _ := net.ParseCIDR(cidr)
 	_, dst, _ := net.ParseCIDR("0.0.0.0/0")
 	testRoute := cniTypes.Route{
-		GW:  ip,
+		GW:  gwIp,
 		Dst: *dst,
 	}
 	testIpam := cni.IpamConfig{
 		Environment: "mas",
-		Subnet:      "10.0.0.0/16",
+		Subnet:      subnet.String(),
 		Routes:      []cniTypes.Route{testRoute},
 	}
+	return testIpam
+}
+
+func CreateNetworkConf(cniVersion string, name string, pluginType string,
+	dns *cniTypes.DNS, addArgs []cni.KVP, gatewayPrefix string) *cni.NetworkConfig {
 	netConf := cni.NetworkConfig{
 		CniVersion:     cniVersion,
 		Name:           name,
-		Ipam:           testIpam,
+		Ipam:           CreateNetConfIpam(gatewayPrefix),
 		Type:           pluginType,
 		DNS:            *dns,
 		AdditionalArgs: addArgs,
@@ -393,7 +397,11 @@ func MakeTestStruct(t *testing.T, testNetwork *hcn.HostComputeNetwork, pluginTyp
 		cid = "123456"
 	}
 	dns := getDefaultDns()
-	netConf := CreateNetworkConf(defaultCniVersion, testNetwork.Name, pluginType, dns, addArgs)
+	netConfPrefix := "10.0.0.1/16"
+	if (needGW) {
+		netConfPrefix = "10.0.0.2/16"
+	}
+	netConf := CreateNetworkConf(defaultCniVersion, testNetwork.Name, pluginType, dns, addArgs, netConfPrefix)
 	netJson, _ := json.Marshal(netConf)
 	pt.NeedGW = needGW
 	pt.Create(netJson, testNetwork, epPolicies, dns.Search, dns.Nameservers, cid)

@@ -132,14 +132,6 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 
 	nwConfig, err := getOrCreateNetwork(plugin, networkInfo, cniConfig)
 	if err != nil {
-		// Error was logged by getNetwork.
-		/*
-			res := cniTypes.Error{
-				Code: 66,
-				Msg: "failure in cni",
-				Details: err.Error(),
-			}*/
-		//res.Print()
 		return err
 	}
 
