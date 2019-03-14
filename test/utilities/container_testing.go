@@ -53,6 +53,7 @@ func (ci *ContainerInfo) RunContainerConnectivityTest(t *testing.T, optionalIp s
 	}
 
 	pingList := []string{"172.16.12.5"}
+	t.Logf("Container Connectivity to Host ...")
 	for _, val := range pingList {
 		err = contTest.PingTest(c, val)
 		if err != nil {
@@ -60,19 +61,25 @@ func (ci *ContainerInfo) RunContainerConnectivityTest(t *testing.T, optionalIp s
 			return err
 		}
 	}
+	t.Logf("Succeeded!")
 
+	t.Logf("Container Connectivity From Host ...")
 	contTest.PingFromHost(ci.Endpoint.IpConfigurations[0].IpAddress)
 	if err != nil {
 		t.Errorf("PingFromHost Failed: %v", err)
 		return err
 	}
+	t.Logf("Succeeded!")
 
+	t.Logf("Container Connectivity to Internet ...")
 	err = contTest.CurlTest(c, "www.google.com")
 	if err != nil {
 		t.Errorf("CurlTest Failed: %v", err)
 		return err
 	}
+	t.Logf("Succeeded!")
 
+	t.Logf("Container Connectivity to Pod ...")
 	if optionalIp != "" {
 		err = contTest.PingTest(c, optionalIp)
 		if err != nil {
@@ -80,6 +87,7 @@ func (ci *ContainerInfo) RunContainerConnectivityTest(t *testing.T, optionalIp s
 			return err
 		}
 	}
+	t.Logf("Succeeded!")
 	t.Logf("Completed!")
 
 	return nil
