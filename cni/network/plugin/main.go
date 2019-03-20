@@ -6,6 +6,7 @@ package main
 import (
 	"os"
 
+	"github.com/Microsoft/go-winio/pkg/etwlogrus"
 	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/cni/network"
 	"github.com/Microsoft/windows-container-networking/common"
@@ -20,6 +21,10 @@ func main() {
 	var config common.PluginConfig
 	config.Version = version
 
+	// Provider ID: {c822b598-f4cc-5a72-7933-ce2a816d033f}
+	if hook, err := etwlogrus.NewHook("wincni"); err == nil {
+		logrus.AddHook(hook)
+	}
 	logrus.SetFormatter(&logrus.JSONFormatter{})
 	logrus.SetLevel(logrus.DebugLevel)
 	file, err := os.OpenFile("wincni.log", os.O_CREATE|os.O_WRONLY, os.FileMode(0777))
