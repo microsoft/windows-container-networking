@@ -398,7 +398,7 @@ func MakeTestStruct(t *testing.T, testNetwork *hcn.HostComputeNetwork, pluginTyp
 	}
 	dns := getDefaultDns()
 	netConfPrefix := "10.0.0.1/16"
-	if (needGW) {
+	if needGW {
 		netConfPrefix = "10.0.0.2/16"
 	}
 	netConf := CreateNetworkConf(defaultCniVersion, testNetwork.Name, pluginType, dns, addArgs, netConfPrefix)

@@ -11,6 +11,7 @@ import (
 	"github.com/Microsoft/windows-container-networking/network"
 	"github.com/sirupsen/logrus"
 
+	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/containernetworking/cni/pkg/invoke"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -270,7 +271,11 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	}
 	endpointInfo, err := plugin.nm.GetEndpointByName(epInfo.Name)
 	if err != nil {
-		logrus.Errorf("[cni-net] Failed to find endpoint, err:%v", err)
+		if hcn.IsNotFoundError(err) {
+			logrus.Debugf("[cni-net] Endpoint was not found error, err:%v", err)
+			return nil
+		}
+		logrus.Errorf("[cni-net] Failed while getting endpoint, err:%v", err)
 		return err
 	}
 
