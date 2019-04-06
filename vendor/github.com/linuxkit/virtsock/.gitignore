@@ -1,0 +1,6 @@
+/bin
+*.img
+*.iso
+*-cmdline
+*-kernel
+*-state
