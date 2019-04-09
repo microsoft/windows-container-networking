@@ -41,6 +41,7 @@ type PortMapping struct {
 
 type RuntimeConfig struct {
 	PortMappings []PortMapping `json:"portMappings,omitempty"`
+	DNS cniTypes.DNS `json:"dns,omitempty"`
 }
 
 // NetworkConfig represents the Windows CNI plugin's network configuration.
@@ -146,7 +147,6 @@ func CallPlugin(plugin PluginApi, cmd string, args *cniSkel.CmdArgs, config *Net
 // ParseNetworkConfig unmarshals network configuration from bytes.
 func ParseNetworkConfig(b []byte) (*NetworkConfig, error) {
 	config := NetworkConfig{}
-
 	err := json.Unmarshal(b, &config)
 	if err != nil {
 		return nil, err
@@ -173,7 +173,7 @@ func (config *NetworkConfig) Serialize() []byte {
 }
 
 // GetNetworkInfo from the NetworkConfig
-func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
+func (config *NetworkConfig) GetNetworkInfo(podNamespace string) *network.NetworkInfo {
 	var subnets []network.SubnetInfo
 	if config.Ipam.Subnet != "" {
 		ip, s, _ := net.ParseCIDR(config.Ipam.Subnet)
@@ -190,16 +190,29 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 		subnets = append(subnets, subnet)
 	}
 
+	
+	dnsSettings := network.DNSInfo{
+		Servers: config.DNS.Nameservers,
+		Suffix: podNamespace + "." + strings.Join(config.DNS.Search, ","),
+	}
+
+	if len(config.RuntimeConfig.DNS.Nameservers) > 0 {
+		logrus.Debugf("Substituting RuntimeConfig DNS Nameservers: %+v", config.RuntimeConfig.DNS.Nameservers)
+		dnsSettings.Servers = config.RuntimeConfig.DNS.Nameservers
+	}
+	if len(config.RuntimeConfig.DNS.Search) > 0 {
+		logrus.Debugf("Substituting RuntimeConfig DNS Search: %+v", config.RuntimeConfig.DNS.Search)
+		dnsSettings.Suffix = strings.Join(config.RuntimeConfig.DNS.Search, ",")
+	}
+	
 	ninfo := &network.NetworkInfo{
 		ID:      config.Name,
 		Name:    config.Name,
 		Type:    network.NetworkType(config.Name),
 		Subnets: subnets,
-		DNS: network.DNSInfo{
-			Servers: config.DNS.Nameservers,
-			Suffix:  strings.Join(config.DNS.Search, ","),
-		},
+		DNS: dnsSettings,
 	}
+	
 	if config.AdditionalArgs != nil {
 		for _, kvp := range config.AdditionalArgs {
 			if strings.Contains(kvp.Name, "Policy") {
@@ -215,7 +228,7 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 // GetEndpointInfo constructs endpoint info using endpoint id, containerid and netns
 func (config *NetworkConfig) GetEndpointInfo(
 	networkinfo *network.NetworkInfo,
-	containerID string, netNs string, podK8sNamespace string) *network.EndpointInfo {
+	containerID string, netNs string) *network.EndpointInfo {
 	containerIDToUse := containerID
 	epInfo := &network.EndpointInfo{
 		Name:        containerIDToUse + "_" + networkinfo.ID,
@@ -225,7 +238,7 @@ func (config *NetworkConfig) GetEndpointInfo(
 
 	epInfo.DNS = network.DNSInfo{
 		Servers: networkinfo.DNS.Servers,
-		Suffix:  podK8sNamespace + "." + networkinfo.DNS.Suffix,
+		Suffix:  networkinfo.DNS.Suffix,
 	}
 
 	if len(networkinfo.Subnets) > 0 {
