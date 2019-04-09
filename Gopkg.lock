@@ -11,7 +11,7 @@
   branch = "master"
   name = "github.com/Microsoft/hcsshim"
   packages = [".","hcn","internal/cni","internal/copyfile","internal/copywithtimeout","internal/guestrequest","internal/guid","internal/hcs","internal/hcserror","internal/hns","internal/interop","internal/lcow","internal/logfields","internal/longpath","internal/mergemaps","internal/regstate","internal/requesttype","internal/runhcs","internal/safefile","internal/schema1","internal/schema2","internal/schemaversion","internal/timeout","internal/uvm","internal/uvmfolder","internal/wclayer","internal/wcow","osversion","pkg/go-runhcs","test/functional/utilities"]
-  revision = "ca6ca4a843cb116b52999c48991c58e9a2fb8432"
+  revision = "9972f06ea8ba09cdddeb5469c2b420c39d402293"
 
 [[projects]]
   name = "github.com/blang/semver"
@@ -62,16 +62,16 @@
   revision = "8e79449dea0735c1c056d814934dd035734cc97c"
 
 [[projects]]
+  branch = "master"
   name = "github.com/opencontainers/runtime-spec"
   packages = ["specs-go"]
-  revision = "4e3b9264a330d094b0386c3703c5f379119711e8"
-  version = "v1.0.1"
+  revision = "a1b50f621a48ad13f8f696a162f684a241307db0"
 
 [[projects]]
+  branch = "master"
   name = "github.com/opencontainers/runtime-tools"
   packages = ["error","filepath","generate","generate/seccomp","specerror","validate"]
-  revision = "ee63cfa6f66491e78f8e63c37806d7a905eb836e"
-  version = "v0.9.0"
+  revision = "7125f1d443b030fde561b45bd0f81528f396e0dc"
 
 [[projects]]
   name = "github.com/opencontainers/selinux"
@@ -130,6 +130,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0c228e46babe97fcad22bd8e56119bbc974d22b0509a9d0f8599480223970841"
+  inputs-digest = "45199da4c83634cde0ff98482c957e54ee6c591de39ddc1235414897ee06e015"
   solver-name = "gps-cdcl"
   solver-version = 1

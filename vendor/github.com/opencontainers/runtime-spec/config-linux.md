@@ -27,7 +27,7 @@ Namespaces are specified as an array of entries inside the `namespaces` root fie
 The following parameters can be specified to set up namespaces:
 
 * **`type`** *(string, REQUIRED)* - namespace type. The following namespace types are supported:
-    * **`pid`** processes inside the container will only be able to see other processes inside the same container.
+    * **`pid`** processes inside the container will only be able to see other processes inside the same container or inside the same pid namespace.
     * **`network`** the container will have its own network stack.
     * **`mount`** the container will have an isolated mount table.
     * **`ipc`** processes inside the container will only be able to communicate to other processes inside the same container via system level IPC.
@@ -82,8 +82,8 @@ If a `namespaces` field contains duplicated namespaces with same `type`, the run
 
 Each entry has the following structure:
 
-* **`hostID`** *(uint32, REQUIRED)* - is the starting uid/gid on the host to be mapped to *containerID*.
 * **`containerID`** *(uint32, REQUIRED)* - is the starting uid/gid in the container.
+* **`hostID`** *(uint32, REQUIRED)* - is the starting uid/gid on the host to be mapped to *containerID*.
 * **`size`** *(uint32, REQUIRED)* - is the number of ids to be mapped.
 
 The runtime SHOULD NOT modify the ownership of referenced filesystems to realize the mapping.
@@ -94,15 +94,15 @@ Note that the number of mapping entries MAY be limited by the [kernel][user-name
 ```json
     "uidMappings": [
         {
-            "hostID": 1000,
             "containerID": 0,
+            "hostID": 1000,
             "size": 32000
         }
     ],
     "gidMappings": [
         {
-            "hostID": 1000,
             "containerID": 0,
+            "hostID": 1000,
             "size": 32000
         }
     ]
@@ -122,8 +122,8 @@ Each entry has the following structure:
 * **`major, minor`** *(int64, REQUIRED unless `type` is `p`)* - [major, minor numbers][devices] for the device.
 * **`fileMode`** *(uint32, OPTIONAL)* - file mode for the device.
     You can also control access to devices [with cgroups](#device-whitelist).
-* **`uid`** *(uint32, OPTIONAL)* - id of device owner.
-* **`gid`** *(uint32, OPTIONAL)* - id of device group.
+* **`uid`** *(uint32, OPTIONAL)* - id of device owner in the [container namespace](glossary.md#container-namespace).
+* **`gid`** *(uint32, OPTIONAL)* - id of device group in the [container namespace](glossary.md#container-namespace).
 
 The same `type`, `major` and `minor` SHOULD NOT be used for multiple devices.
 
@@ -162,14 +162,14 @@ In addition to any devices configured with this setting, the runtime MUST also s
 * [`/dev/random`][random.4]
 * [`/dev/urandom`][random.4]
 * [`/dev/tty`][tty.4]
-* [`/dev/console`][console.4] is set up if terminal is enabled in the config by bind mounting the pseudoterminal slave to /dev/console.
+* `/dev/console` is set up if [`terminal`](config.md#process) is enabled in the config by bind mounting the pseudoterminal slave to `/dev/console`.
 * [`/dev/ptmx`][pts.4].
   A [bind-mount or symlink of the container's `/dev/pts/ptmx`][devpts].
 
 ## <a name="configLinuxControlGroups" />Control groups
 
 Also known as cgroups, they are used to restrict resource usage for a container and handle device access.
-cgroups provide controls (through controllers) to restrict cpu, memory, IO, pids and network for the container.
+cgroups provide controls (through controllers) to restrict cpu, memory, IO, pids, network and RDMA resources for the container.
 For more information, see the [kernel cgroups documentation][cgroup-v1].
 
 ### <a name="configLinuxCgroupsPath" />Cgroups Path
@@ -455,30 +455,77 @@ The following parameters can be specified to set up the controller:
    }
 ```
 
+### <a name="configLinuxRDMA" />RDMA
+
+**`rdma`** (object, OPTIONAL) represents the cgroup subsystem `rdma`.
+For more information, see the kernel cgroups documentation about [rdma][cgroup-v1-rdma].
+
+The name of the device to limit is the entry key.
+Entry values are objects with the following properties:
+
+* **`hcaHandles`** *(uint32, OPTIONAL)* - specifies the maximum number of hca_handles in the cgroup
+* **`hcaObjects`** *(uint32, OPTIONAL)* - specifies the maximum number of hca_objects in the cgroup
+
+You MUST specify at least one of the `hcaHandles` or `hcaObjects` in a given entry, and MAY specify both.
+
+#### Example
+
+```json
+"rdma": {
+    "mlx5_1": {
+        "hcaHandles": 3,
+        "hcaObjects": 10000
+    },
+    "mlx4_0": {
+        "hcaObjects": 1000
+    },
+    "rxe3": {
+        "hcaObjects": 10000
+    }
+}
+```
+
 ## <a name="configLinuxIntelRdt" />IntelRdt
 
 **`intelRdt`** (object, OPTIONAL) represents the [Intel Resource Director Technology][intel-rdt-cat-kernel-interface].
-    If `intelRdt` is set, the runtime MUST write the container process ID to the `<container-id>/tasks` file in a mounted `resctrl` pseudo-filesystem, using the container ID from [`start`](runtime.md#start) and creating the `<container-id>` directory if necessary.
+    If `intelRdt` is set, the runtime MUST write the container process ID to the `tasks` file in a proper sub-directory in a mounted `resctrl` pseudo-filesystem. That sub-directory name is specified by `closID` parameter.
     If no mounted `resctrl` pseudo-filesystem is available in the [runtime mount namespace](glossary.md#runtime-namespace), the runtime MUST [generate an error](runtime.md#errors).
 
-    If `intelRdt` is not set, the runtime MUST NOT manipulate any `resctrl` pseudo-filesystems.
+If `intelRdt` is not set, the runtime MUST NOT manipulate any `resctrl` pseudo-filesystems.
 
 The following parameters can be specified for the container:
 
-* **`l3CacheSchema`** *(string, OPTIONAL)* - specifies the schema for L3 cache id and capacity bitmask (CBM).
-    If `l3CacheSchema` is set, runtimes MUST write the value to the `schemata` file in the `<container-id>` directory discussed in `intelRdt`.
+* **`closID`** *(string, OPTIONAL)* - specifies the identity for RDT Class of Service (CLOS).
+    If `closID` is set, runtimes MUST create `closID` directory in a mounted `resctrl` pseudo-filesystem if it doesn't exist. If not set, runtimes MUST use the container ID from [`start`](runtime.md#start) and create the `<container-id>` directory.
 
-    If `l3CacheSchema` is not set, runtimes MUST NOT write to `schemata` files in any `resctrl` pseudo-filesystems.
+* **`l3CacheSchema`** *(string, OPTIONAL)* - specifies the schema for L3 cache id and capacity bitmask (CBM).
+    The value SHOULD start with `L3:` and SHOULD NOT contain newlines.
+* **`memBwSchema`** *(string, OPTIONAL)* - specifies the schema of memory bandwidth per L3 cache id.
+    The value MUST start with `MB:` and MUST NOT contain newlines.
+
+    If both `l3CacheSchema` and `memBwSchema` are set, runtimes MUST write the combined value to the `schemata` file in that sub-directory discussed in `closID`.
+    If `l3CacheSchema` contains a line beginning with `MB:`, the value written to `schemata` file MUST be the non-`MB:` line(s) from `l3CacheSchema` and the line from `memBWSchema`.
+
+    If either `l3CacheSchema` or `memBwSchema` is set, runtimes MUST write the value to the `schemata` file in the that sub-directory discussed in `closID`.
+
+    If neither `l3CacheSchema` nor `memBwSchema` is set, runtimes MUST NOT write to `schemata` files in any `resctrl` pseudo-filesystems.
+
+    If `closID` is set, `l3CacheSchema` and/or `memBwSchema` is set, runtimes MUST compare `l3CacheSchema` and/or `memBwSchema` value with `schemata` file, and [generate an error](runtime.md#errors) if doesn't match.
 
 ### Example
 
-Consider a two-socket machine with two L3 caches where the default CBM is 0xfffff and the max CBM length is 20 bits.
-Tasks inside the container only have access to the "upper" 80% of L3 cache id 0 and the "lower" 50% L3 cache id 1:
+Consider a two-socket machine with two L3 caches where the default CBM is 0x7ff and the max CBM length is 11 bits,
+and minimum memory bandwidth of 10% with a memory bandwidth granularity of 10%.
+
+Tasks inside the container only have access to the "upper" 7/11 of L3 cache on socket 0 and the "lower" 5/11 L3 cache on socket 1,
+and may use a maximum memory bandwidth of 20% on socket 0 and 70% on socket 1.
 
 ```json
 "linux": {
     "intelRdt": {
-        "l3CacheSchema": "L3:0=ffff0;1=3ff"
+        "closID": "guaranteed_group",
+        "l3CacheSchema": "L3:0=7f0;1=1f",
+        "memBwSchema": "MB:0=20;1=70"
     }
 }
 ```
@@ -647,6 +694,7 @@ The following parameters can be specified to set up seccomp:
 [cgroup-v1-net-cls]: https://www.kernel.org/doc/Documentation/cgroup-v1/net_cls.txt
 [cgroup-v1-net-prio]: https://www.kernel.org/doc/Documentation/cgroup-v1/net_prio.txt
 [cgroup-v1-pids]: https://www.kernel.org/doc/Documentation/cgroup-v1/pids.txt
+[cgroup-v1-rdma]: https://www.kernel.org/doc/Documentation/cgroup-v1/rdma.txt
 [cgroup-v2]: https://www.kernel.org/doc/Documentation/cgroup-v2.txt
 [devices]: https://www.kernel.org/doc/Documentation/admin-guide/devices.txt
 [devpts]: https://www.kernel.org/doc/Documentation/filesystems/devpts.txt
@@ -658,7 +706,6 @@ The following parameters can be specified to set up seccomp:
 [sysfs]: https://www.kernel.org/doc/Documentation/filesystems/sysfs.txt
 [tmpfs]: https://www.kernel.org/doc/Documentation/filesystems/tmpfs.txt
 
-[console.4]: http://man7.org/linux/man-pages/man4/console.4.html
 [full.4]: http://man7.org/linux/man-pages/man4/full.4.html
 [mknod.1]: http://man7.org/linux/man-pages/man1/mknod.1.html
 [mknod.2]: http://man7.org/linux/man-pages/man2/mknod.2.html
