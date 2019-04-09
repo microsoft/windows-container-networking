@@ -176,7 +176,7 @@ func (config *NetworkConfig) Serialize() []byte {
 }
 
 // GetNetworkInfo from the NetworkConfig
-func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
+func (config *NetworkConfig) GetNetworkInfo(podNamespace string) *network.NetworkInfo {
 	var subnets []network.SubnetInfo
 	if config.Ipam.Subnet != "" {
 		ip, s, _ := net.ParseCIDR(config.Ipam.Subnet)
@@ -193,6 +193,9 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 		subnets = append(subnets, subnet)
 	}
 
+	if len(config.DNS.Search) > 0 {
+		config.DNS.Search[0] = podNamespace + "." + config.DNS.Search[0]
+	}
 	dnsSettings := network.DNSInfo{
 		Nameservers: config.DNS.Nameservers,
 		Search:      config.DNS.Search,
@@ -238,31 +241,26 @@ func (config *NetworkConfig) GetNetworkInfo() *network.NetworkInfo {
 
 // GetEndpointInfo constructs endpoint info using endpoint id, containerid and netns
 func (config *NetworkConfig) GetEndpointInfo(
-	networkinfo *network.NetworkInfo,
-	containerID string, netNs string, podK8sNamespace string) (*network.EndpointInfo, error) {
+	networkInfo *network.NetworkInfo,
+	containerID string, netNs string) (*network.EndpointInfo, error) {
 	containerIDToUse := containerID
 	epInfo := &network.EndpointInfo{
-		Name:        containerIDToUse + "_" + networkinfo.ID,
-		NetworkID:   networkinfo.ID,
+		Name:        containerIDToUse + "_" + networkInfo.ID,
+		NetworkID:   networkInfo.ID,
 		NamespaceID: netNs,
 		ContainerID: containerID,
 	}
 
-	//Modify search to have the correct k8s namespace
-	newSearch := []string{}
-	if len(networkinfo.DNS.Search) > 0 {
-		newSearch = []string{podK8sNamespace + "." + networkinfo.DNS.Search[0]}
-	}
 	epInfo.DNS = network.DNSInfo{
-		Domain:      networkinfo.DNS.Domain,
-		Nameservers: networkinfo.DNS.Nameservers,
-		Search:      newSearch,
-		Options:     networkinfo.DNS.Options,
+		Domain:      networkInfo.DNS.Domain,
+		Nameservers: networkInfo.DNS.Nameservers,
+		Search:      networkInfo.DNS.Search,
+		Options:     networkInfo.DNS.Options,
 	}
 
-	if len(networkinfo.Subnets) > 0 {
-		epInfo.Subnet = networkinfo.Subnets[0].AddressPrefix
-		epInfo.Gateway = networkinfo.Subnets[0].GatewayAddress
+	if len(networkInfo.Subnets) > 0 {
+		epInfo.Subnet = networkInfo.Subnets[0].AddressPrefix
+		epInfo.Gateway = networkInfo.Subnets[0].GatewayAddress
 	}
 
 	runtimeConf := config.RuntimeConfig
