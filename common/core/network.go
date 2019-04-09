@@ -93,7 +93,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		args.ContainerID, args.Netns, args.IfName, args.Args, args.Path)
 
 	podConfig, err := cni.ParseCniArgs(args.Args)
-	k8sNamespace := "default"
+	k8sNamespace := ""
 	if err == nil {
 		k8sNamespace = string(podConfig.K8S_POD_NAMESPACE)
 	}
@@ -109,9 +109,8 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 
 	// Convert cniConfig to NetworkInfo
 	// We don't set namespace, setting namespace is not valid for EP creation
-	networkInfo := cniConfig.GetNetworkInfo()
-	epInfo, err := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID,
-		"", k8sNamespace)
+	networkInfo := cniConfig.GetNetworkInfo(k8sNamespace)
+	epInfo, err := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, "")
 
 	if err != nil {
 		return err
@@ -250,7 +249,7 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 		args.ContainerID, args.Netns, args.IfName, args.Args, args.Path)
 
 	podConfig, err := cni.ParseCniArgs(args.Args)
-	k8sNamespace := "default"
+	k8sNamespace := ""
 	if err == nil {
 		k8sNamespace = string(podConfig.K8S_POD_NAMESPACE)
 	}
@@ -263,9 +262,8 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
 	// Convert cniConfig to NetworkInfo
-	networkInfo := cniConfig.GetNetworkInfo()
-	epInfo, err := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID,
-		args.Netns, k8sNamespace)
+	networkInfo := cniConfig.GetNetworkInfo(k8sNamespace)
+	epInfo, err := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, args.Netns)
 	if err != nil {
 		return err
 	}
