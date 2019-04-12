@@ -7,7 +7,7 @@ trigger:
 - master
 
 pool:
-  vmImage: 'Ubuntu-16.04'
+  name: default
 
 variables:
   GOBIN:  '$(GOPATH)/bin' # Go binaries path
