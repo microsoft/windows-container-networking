@@ -19,8 +19,8 @@ These plugins are made for windows and need to be compiled for windows. However,
 
 If you have make installed on your system:
 
-`make all` - will build `nat.exe`, `sdnbridge.exe` and `sdnoverlay.exe` 
-`make <plugin>`
+`make all` - will build all plugins: `nat.exe`, `sdnbridge.exe`, and `sdnoverlay.exe`
+`make <plugin>` - will build an individual plugin
 
 Else:
 
