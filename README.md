@@ -15,15 +15,20 @@ Currently you must build the binaries yourself (see below)
 * ToDo: Automated Release
 
 ## Build
-These plugins are made for windows and need to be compiled for windows
+These plugins are made for windows and need to be compiled for windows. However, you can cross-compile them from Linux.
 
 If you have make installed on your system:
 
-`make all` \ `make <plugin>`
+`make all` - will build `nat.exe`, `sdnbridge.exe` and `sdnoverlay.exe` 
+`make <plugin>`
 
 Else:
 
-`GOOS=windows GOARCH=amd64 go build -v -o out/<plugin>.exe plugins/<plugin>/*.go` 
+`GOOS=windows GOARCH=amd64 go build -v -o out/<plugin>.exe plugins/<plugin>/*.go`
+
+### Building inside a Linux container
+
+On a Linux machine, run `make dev`, then `make all`. That will cross-build the Windows binaries in a clean environment.
 
 ## Testing
 There is a test suite that should be run (`make test`) before any changes. Opening a PR should trigger a Jenkins run that will run all the tests. If you wish to run them locally, you'll need a nanoserver image pulled from docker. 
