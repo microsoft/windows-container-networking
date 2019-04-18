@@ -32,6 +32,12 @@ type KVP struct {
 	Value json.RawMessage `json:"value"`
 }
 
+type cniDNSConfig struct {
+	Servers []string `json:"servers,omitempty"`
+	Searches []string `json:"searches,omitempty"`
+	Options []string `json:"options,omitempty"`
+}
+
 type PortMapping struct {
 	HostPort      int    `json:"hostPort"`
 	ContainerPort int    `json:"containerPort"`
@@ -41,7 +47,7 @@ type PortMapping struct {
 
 type RuntimeConfig struct {
 	PortMappings []PortMapping `json:"portMappings,omitempty"`
-	DNS cniTypes.DNS `json:"dns,omitempty"`
+	DNS cniDNSConfig `json:"dns,omitempty"`
 }
 
 // NetworkConfig represents the Windows CNI plugin's network configuration.
@@ -196,13 +202,13 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) *network.Networ
 		Suffix: podNamespace + "." + strings.Join(config.DNS.Search, ","),
 	}
 
-	if len(config.RuntimeConfig.DNS.Nameservers) > 0 {
-		logrus.Debugf("Substituting RuntimeConfig DNS Nameservers: %+v", config.RuntimeConfig.DNS.Nameservers)
-		dnsSettings.Servers = config.RuntimeConfig.DNS.Nameservers
+	if len(config.RuntimeConfig.DNS.Servers) > 0 {
+		logrus.Debugf("Substituting RuntimeConfig DNS Nameservers: %+v", config.RuntimeConfig.DNS.Servers)
+		dnsSettings.Servers = config.RuntimeConfig.DNS.Servers
 	}
-	if len(config.RuntimeConfig.DNS.Search) > 0 {
-		logrus.Debugf("Substituting RuntimeConfig DNS Search: %+v", config.RuntimeConfig.DNS.Search)
-		dnsSettings.Suffix = strings.Join(config.RuntimeConfig.DNS.Search, ",")
+	if len(config.RuntimeConfig.DNS.Searches) > 0 {
+		logrus.Debugf("Substituting RuntimeConfig DNS Search: %+v", config.RuntimeConfig.DNS.Searches)
+		dnsSettings.Suffix = strings.Join(config.RuntimeConfig.DNS.Searches, ",")
 	}
 	
 	ninfo := &network.NetworkInfo{
