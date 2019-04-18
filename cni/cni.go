@@ -39,9 +39,15 @@ type PortMapping struct {
 	HostIp        string `json:"hostIP,omitempty"`
 }
 
+type cniDNSConfig struct {
+	Servers  []string `json:"servers,omitempty"`
+	Searches []string `json:"searches,omitempty"`
+	Options  []string `json:"options,omitempty"`
+}
+
 type RuntimeConfig struct {
 	PortMappings []PortMapping `json:"portMappings,omitempty"`
-	DNS          cniTypes.DNS  `json:"dns"`
+	DNS          cniDNSConfig  `json:"dns"`
 }
 
 type IpamConfig struct {
@@ -194,7 +200,9 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) *network.Networ
 	}
 
 	if len(config.DNS.Search) > 0 {
-		config.DNS.Search[0] = podNamespace + "." + config.DNS.Search[0]
+		if podNamespace != "" {
+			config.DNS.Search[0] = podNamespace + "." + config.DNS.Search[0]
+		}
 	}
 	dnsSettings := network.DNSInfo{
 		Nameservers: config.DNS.Nameservers,
@@ -202,17 +210,13 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) *network.Networ
 		Domain:      config.DNS.Domain,
 		Options:     config.DNS.Options,
 	}
-	if len(config.RuntimeConfig.DNS.Nameservers) > 0 {
-		logrus.Debugf("Substituting RuntimeConfig DNS Nameservers: %+v", config.RuntimeConfig.DNS.Nameservers)
-		dnsSettings.Nameservers = config.RuntimeConfig.DNS.Nameservers
+	if len(config.RuntimeConfig.DNS.Servers) > 0 {
+		logrus.Debugf("Substituting RuntimeConfig DNS Nameservers: %+v", config.RuntimeConfig.DNS.Servers)
+		dnsSettings.Nameservers = config.RuntimeConfig.DNS.Servers
 	}
-	if config.RuntimeConfig.DNS.Domain != "" {
-		logrus.Debugf("Substituting RuntimeConfig DNS Domain: %+v", config.RuntimeConfig.DNS.Domain)
-		dnsSettings.Domain = config.RuntimeConfig.DNS.Domain
-	}
-	if len(config.RuntimeConfig.DNS.Search) > 0 {
-		logrus.Debugf("Substituting RuntimeConfig DNS Search: %+v", config.RuntimeConfig.DNS.Search)
-		dnsSettings.Search = config.RuntimeConfig.DNS.Search
+	if len(config.RuntimeConfig.DNS.Searches) > 0 {
+		logrus.Debugf("Substituting RuntimeConfig DNS Search: %+v", config.RuntimeConfig.DNS.Searches)
+		dnsSettings.Search = config.RuntimeConfig.DNS.Searches
 	}
 	if len(config.RuntimeConfig.DNS.Options) > 0 {
 		logrus.Debugf("Substituting RuntimeConfig DNS Options: %+v", config.RuntimeConfig.DNS.Options)
