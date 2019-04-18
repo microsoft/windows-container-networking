@@ -14,10 +14,14 @@ CNI_NET_DIR = plugins
 OUTPUTDIR = out
 
 # Containerized build parameters.
-BUILD_CONTAINER_IMAGE = wcn-build
-BUILD_CONTAINER_NAME = wcn-builder
-BUILD_CONTAINER_REPO_PATH = /go/src/github.com
-BUILD_USER ?= $(shell id -u)
+# Based on Azure/aks-engine Makefile
+REPO_PATH := github.com/Microsoft/windows-container-networking
+DEV_ENV_IMAGE := golang:1.12.2
+DEV_ENV_WORK_DIR := /go/src/${REPO_PATH}
+DEV_ENV_OPTS := --rm -v ${CURDIR}:${DEV_ENV_WORK_DIR} -w ${DEV_ENV_WORK_DIR} ${DEV_ENV_VARS}
+DEV_ENV_CMD := docker run ${DEV_ENV_OPTS} ${DEV_ENV_IMAGE}
+DEV_ENV_CMD_IT := docker run -it ${DEV_ENV_OPTS} ${DEV_ENV_IMAGE}
+DEV_CMD_RUN := docker run ${DEV_ENV_OPTS}
 
 # Docker plugin image parameters.
 
@@ -30,6 +34,12 @@ sdnbridge: $(OUTPUTDIR)/sdnbridge
 sdnoverlay: $(OUTPUTDIR)/sdnoverlay
 nat: $(OUTPUTDIR)/nat
 all: sdnbridge sdnoverlay nat
+
+# Containerized Build Environment
+.PHONY: dev
+dev:
+	$(DEV_ENV_CMD_IT) bash
+
 
 # Clean all build artifacts.
 .PHONY: clean
