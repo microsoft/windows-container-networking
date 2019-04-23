@@ -4,11 +4,11 @@
 package network
 
 import (
-	"sync"
-	"time"
-
+	"fmt"
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/Microsoft/windows-container-networking/common"
+	"sync"
+	"time"
 )
 
 // NetworkManager manages the set of container networking resources.
@@ -124,13 +124,13 @@ func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo,
 	hcnEndpointConfig := epInfo.GetHostComputeEndpoint()
 	hcnEndpoint, err := hcnEndpointConfig.Create()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating endpoint %v : endpoint config %v", err, hcnEndpointConfig)
 	}
 
 	// Add this endpoint to Namespace
 	err = hcn.AddNamespaceEndpoint(namespaceID, hcnEndpoint.Id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error adding endpoint to namespace %v : endpoint %v", err, hcnEndpoint)
 	}
 
 	return GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint), err
@@ -146,15 +146,15 @@ func (nm *networkManager) DeleteEndpoint(endpointID string) error {
 		return err
 	}
 
-	err = hcnEndpoint.Delete()
-	if err != nil {
-		return err
-	}
-
 	// Remove this endpoint from the namespace
 	err = hcn.RemoveNamespaceEndpoint(hcnEndpoint.HostComputeNamespace, hcnEndpoint.Id)
 	if err != nil {
-		return err
+		return fmt.Errorf("error removing endpoint from namespace %v : endpoint %v", err, hcnEndpoint)
+	}
+
+	err = hcnEndpoint.Delete()
+	if err != nil {
+		return fmt.Errorf("error deleting endpoint %v : endpoint %v", err, hcnEndpoint)
 	}
 
 	return nil
