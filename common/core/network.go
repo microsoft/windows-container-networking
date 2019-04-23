@@ -126,7 +126,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 
 	// Check for missing namespace
 	if args.Netns == "" {
-		logrus.Errorf("[cni-net] Missing Namespace, cannot Add. [%v].", epInfo)
+		logrus.Errorf("[cni-net] Missing Namespace, cannot add, endpoint : [%v].", epInfo)
 		return errors.New("cannot create endpoint without a namespace")
 	}
 
@@ -143,11 +143,9 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		if hnsEndpoint.NetworkID == nwConfig.ID {
 			// An endpoint already exists in the same network.
 			// Do not allow creation of more endpoints on same network
-			logrus.Debugf("[cni-net] Endpoint exists on same network, ignoring Add.  [%v].", epInfo)
+			logrus.Debugf("[cni-net] Endpoint exists on same network, ignoring add : [%v].", epInfo)
 			result := cni.GetResult020(nwConfig, hnsEndpoint)
 			result.Print()
-			//logrus.Debugf(result.String())
-
 			return nil
 		}
 	} else {
@@ -159,13 +157,13 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 
 	epInfo, err = plugin.nm.CreateEndpoint(nwConfig.ID, epInfo, args.Netns)
 	if err != nil {
-		logrus.Errorf("[cni-net] Failed to create endpoint, err:%v.", err)
+		logrus.Errorf("[cni-net] Failed to create endpoint, error : %v.", err)
 		return err
 	}
 
 	result := cni.GetResult020(nwConfig, epInfo)
 	result.Print()
-	//logrus.Debugf(result.String())
+	logrus.Debugf("[cni-net] result: %v", result.String()) 
 	return nil
 }
 
