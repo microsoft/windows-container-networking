@@ -163,7 +163,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 
 	result := cni.GetResult020(nwConfig, epInfo)
 	result.Print()
-	logrus.Debugf("[cni-net] result: %v", result.String()) 
+	logrus.Debugf("[cni-net] result: %v", result.String())
 	return nil
 }
 
@@ -202,14 +202,7 @@ func allocateIpam(
 		for _, route := range resultImpl.IP4.Routes {
 			endpointInfo.Routes = append(endpointInfo.Routes, network.RouteInfo{Destination: route.Dst, Gateway: route.GW})
 		}
-		/*
-			// TODO : This should override the global settings.
-				endpointInfo.DNS = network.DNSInfo{
-					Servers: resultImpl.DNS.Nameservers,
-				}
-		*/
 	}
-
 	return nil
 }
 
