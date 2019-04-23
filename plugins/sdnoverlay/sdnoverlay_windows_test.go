@@ -33,5 +33,5 @@ func TestOverlayCmdAdd(t *testing.T) {
 	t.Skip("Overlay test is disabled for now.")
 	testNetwork := CreateOverlayTestNetwork()
 	pt := util.MakeTestStruct(t, testNetwork, "sdnoverlay", true, false, "")
-	pt.RunBasicConnectivityTest(t, 2)
+	pt.RunAll(t)
 }

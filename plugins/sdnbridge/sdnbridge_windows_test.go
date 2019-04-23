@@ -14,5 +14,5 @@ func CreateBridgeTestNetwork() *hcn.HostComputeNetwork {
 func TestBridgeCmdAdd(t *testing.T) {
 	testNetwork := CreateBridgeTestNetwork()
 	pt := util.MakeTestStruct(t, testNetwork, "sdnbridge", true, true, "")
-	pt.RunBasicConnectivityTest(t, 2)
+	pt.RunAll(t)
 }
