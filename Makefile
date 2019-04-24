@@ -52,3 +52,7 @@ $(OUTPUTDIR)/sdnbridge $(OUTPUTDIR)/sdnoverlay $(OUTPUTDIR)/nat : $(CNIFILES)
 .PHONY: test
 test :
 	GOOS=windows GOARCH=amd64 go test -v ./...
+
+.PHONY : format
+format :
+	gofmt -s -l -w ./common/* ./cni/* ./network/* ./plugins/* ./test/*

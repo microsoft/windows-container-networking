@@ -6,10 +6,12 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/common"
 	"github.com/Microsoft/windows-container-networking/network"
 	"github.com/sirupsen/logrus"
+	"os"
 
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/containernetworking/cni/pkg/invoke"
@@ -88,7 +90,7 @@ func (plugin *netPlugin) Stop() {
 // args.Netns - Network Namespace Id (required).
 // args.IfName - Interface Name specifies the interface the network should bind to (ex: Ethernet).
 // args.Path - Location of the config file.
-func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
+func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	logrus.Debugf("[cni-net] Processing ADD command with args {ContainerID:%v Netns:%v IfName:%v Args:%v Path:%v}.",
 		args.ContainerID, args.Netns, args.IfName, args.Args, args.Path)
 
@@ -114,14 +116,6 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 
 	if err != nil {
 		return err
-	}
-	// If Ipam was provided, allocate a pool and obtain V4 address
-	if cniConfig.Ipam.Type != "" {
-		err = allocateIpam(networkInfo, epInfo, cniConfig)
-		if err != nil {
-			// Error was logged by allocateIpam.
-			return err
-		}
 	}
 
 	// Check for missing namespace
@@ -152,6 +146,26 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 		logrus.Debugf("[cni-net] Creating a new Endpoint")
 	}
 
+	// If Ipam was provided, allocate a pool and obtain V4 address
+	if cniConfig.Ipam.Type != "" {
+		err = allocateIpam(networkInfo, epInfo, cniConfig)
+		if err != nil {
+			// Error was logged by allocateIpam.
+			return err
+		}
+		defer func() {
+			if resultError != nil {
+				logrus.Debugf("[cni-net] failure during ADD cleaning-up ipam, %v", err)
+				os.Setenv("CNI_COMMAND", "DEL")
+				err := deallocateIpam(cniConfig)
+				os.Setenv("CNI_COMMAND", "ADD")
+				if err != nil {
+					logrus.Debugf("[cni-net] failed during ADD command for clean-up delegate delete call, %v", err)
+				}
+			}
+		}()
+	}
+
 	// Apply the Network Policy for Endpoint
 	epInfo.Policies = append(epInfo.Policies, networkInfo.Policies...)
 
@@ -167,7 +181,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) error {
 	return nil
 }
 
-// allocateIpam allocateds a pool, then acquires a V4 subnet, endpoint address, and route.
+// allocateIpam allocates a pool, then acquires a V4 subnet, endpoint address, and route.
 func allocateIpam(
 	networkInfo *network.NetworkInfo,
 	endpointInfo *network.EndpointInfo,
@@ -183,11 +197,11 @@ func allocateIpam(
 
 	resultImpl, err = cniTypesImpl.GetResult(result)
 	if err != nil {
-		logrus.Infof("[cni-net] Failed to allocate pool, err:%v.", err)
+		logrus.Debugf("[cni-net] Failed to allocate pool, err:%v.", err)
 		return err
 	}
 
-	logrus.Infof("[cni-net] IPAM plugin returned result %v.", resultImpl)
+	logrus.Debugf("[cni-net] IPAM plugin returned result %v.", resultImpl)
 	// Derive the subnet from allocated IP address.
 	if resultImpl.IP4 != nil {
 		var subnetInfo = network.SubnetInfo{
@@ -204,6 +218,11 @@ func allocateIpam(
 		}
 	}
 	return nil
+}
+
+// deallocateIpam performs the cleanup necessary for removing an ipam
+func deallocateIpam(cniConfig *cni.NetworkConfig) error {
+	return invoke.DelegateDel(context.TODO(), cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
 }
 
 // getOrCreateNetwork
@@ -252,6 +271,16 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	}
 
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
+
+	if cniConfig.Ipam.Type != "" {
+		logrus.Debugf("[cni-net] Ipam detected, executing delegate call to delete ipam, %v", cniConfig.Ipam)
+		err := deallocateIpam(cniConfig)
+		if err != nil {
+			logrus.Debugf("[cni-net] Failed during delete call for ipam, %v", err)
+			return fmt.Errorf("ipam deletion failed, %v", err)
+		}
+	}
+
 	// Convert cniConfig to NetworkInfo
 	networkInfo := cniConfig.GetNetworkInfo(k8sNamespace)
 	epInfo, err := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, args.Netns)
