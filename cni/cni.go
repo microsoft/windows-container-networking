@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
+	"github.com/Microsoft/hcsshim/hcn"
 	network "github.com/Microsoft/windows-container-networking/network"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -68,6 +70,7 @@ type NetworkConfig struct {
 	Type           string        `json:"type"` // As per SPEC, Type is Name of the Binary
 	Ipam           IpamConfig    `json:"ipam"`
 	DNS            cniTypes.DNS  `json:"dns"`
+	OptionalFlags  OptionalFlags `json:"optionalFlags"`
 	RuntimeConfig  RuntimeConfig `json:"runtimeConfig"`
 	AdditionalArgs []KVP
 }
@@ -98,6 +101,11 @@ type K8SPodEnvArgs struct {
 	K8S_POD_NAMESPACE          cniTypes.UnmarshallableString `json:"K8S_POD_NAMESPACE,omitempty"`
 	K8S_POD_NAME               cniTypes.UnmarshallableString `json:"K8S_POD_NAME,omitempty"`
 	K8S_POD_INFRA_CONTAINER_ID cniTypes.UnmarshallableString `json:"K8S_POD_INFRA_CONTAINER_ID,omitempty"`
+}
+
+type OptionalFlags struct {
+	LocalRoutePortMapping bool `json:"localRoutedPortMapping"`
+	AllowAclPortMapping   bool `json:"allowAclPortMapping"`
 }
 
 func (r *Result) Print() {
@@ -243,6 +251,41 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) *network.Networ
 	return ninfo
 }
 
+// getInACLRule generates an In ACLs for mapped ports
+func getInACLRule(mapping *PortMapping, aclPriority uint16) (*network.Policy, error) {
+
+	var err error
+
+	in := hcn.AclPolicySetting{
+		Protocols:  mapping.Protocol,
+		Action:     hcn.ActionTypeAllow,
+		Direction:  hcn.DirectionTypeIn,
+		LocalPorts: strconv.Itoa(mapping.ContainerPort),
+		Priority:   aclPriority,
+	}
+
+	rawJSON, err := json.Marshal(in)
+	if err != nil {
+		return nil, fmt.Errorf("failed marshalling acl: %v", err)
+	}
+
+	inPol := hcn.EndpointPolicy{
+		Type:     hcn.ACL,
+		Settings: rawJSON,
+	}
+
+	rawData, err := json.Marshal(inPol)
+	inPolicy := network.Policy{
+		Type: network.EndpointPolicy,
+		Data: rawData}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed marshalling acl: %v", err)
+	}
+
+	return &inPolicy, nil
+}
+
 // GetEndpointInfo constructs endpoint info using endpoint id, containerid and netns
 func (config *NetworkConfig) GetEndpointInfo(
 	networkInfo *network.NetworkInfo,
@@ -269,13 +312,27 @@ func (config *NetworkConfig) GetEndpointInfo(
 
 	runtimeConf := config.RuntimeConfig
 	logrus.Debugf("Parsing port mappings from %+v", runtimeConf.PortMappings)
+
+	flags := uint32(0)
+	if config.OptionalFlags.LocalRoutePortMapping {
+		flags = 1
+	}
+	var aclPriority uint16 = 1000
 	for _, mapping := range runtimeConf.PortMappings {
-		policy, err := network.GetPortMappingPolicy(mapping.HostPort, mapping.ContainerPort, mapping.Protocol)
+		policy, err := network.GetPortMappingPolicy(mapping.HostPort, mapping.ContainerPort, mapping.Protocol, flags)
 		if err != nil {
 			return nil, fmt.Errorf("failed during GetEndpointInfo from netconf: %v", err)
 		}
 		logrus.Debugf("Created raw policy from mapping: %+v --- %+v", mapping, policy)
 		epInfo.Policies = append(epInfo.Policies, policy)
+
+		if config.OptionalFlags.AllowAclPortMapping {
+			pol, err := getInACLRule(&mapping, aclPriority)
+			if err != nil {
+				return nil, fmt.Errorf("failed getInACLRule: %v", err)
+			}
+			epInfo.Policies = append(epInfo.Policies, *pol)
+		}
 	}
 
 	return epInfo, nil

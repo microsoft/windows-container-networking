@@ -72,6 +72,7 @@ type PortMappingPolicySetting struct {
 	InternalPort uint16 `json:",omitempty"`
 	ExternalPort uint16 `json:",omitempty"`
 	VIP          string `json:",omitempty"`
+	Flags        uint32 `json:",omitempty"`
 }
 
 // ActionType associated with ACLs. Value is either Allow or Block.
