@@ -251,6 +251,41 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) *network.Networ
 	return ninfo
 }
 
+// getInACLRule generates an In ACLs for mapped ports
+func getInACLRule(mapping *PortMapping, aclPriority uint16) (*network.Policy, error) {
+
+	var err error
+
+	in := hcn.AclPolicySetting{
+		Protocols:  mapping.Protocol,
+		Action:     hcn.ActionTypeAllow,
+		Direction:  hcn.DirectionTypeIn,
+		LocalPorts: strconv.Itoa(mapping.ContainerPort),
+		Priority:   aclPriority,
+	}
+
+	rawJSON, err := json.Marshal(in)
+	if err != nil {
+		return nil, fmt.Errorf("failed marshalling acl: %v", err)
+	}
+
+	inPol := hcn.EndpointPolicy{
+		Type:     hcn.ACL,
+		Settings: rawJSON,
+	}
+
+	rawData, err := json.Marshal(inPol)
+	inPolicy := network.Policy{
+		Type: network.EndpointPolicy,
+		Data: rawData}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed marshalling acl: %v", err)
+	}
+
+	return &inPolicy, nil
+}
+
 // GetEndpointInfo constructs endpoint info using endpoint id, containerid and netns
 func (config *NetworkConfig) GetEndpointInfo(
 	networkInfo *network.NetworkInfo,
@@ -291,36 +326,12 @@ func (config *NetworkConfig) GetEndpointInfo(
 		logrus.Debugf("Created raw policy from mapping: %+v --- %+v", mapping, policy)
 		epInfo.Policies = append(epInfo.Policies, policy)
 
-		// Generate In ACLs for mapped ports
 		if config.OptionalFlags.AllowAclPortMapping {
-			in := hcn.AclPolicySetting{
-				Protocols:  mapping.Protocol,
-				Action:     hcn.ActionTypeAllow,
-				Direction:  hcn.DirectionTypeIn,
-				LocalPorts: strconv.Itoa(mapping.ContainerPort),
-				Priority:   aclPriority,
-			}
-
-			rawJSON, err := json.Marshal(in)
+			pol, err := getInACLRule(&mapping, aclPriority)
 			if err != nil {
-				return nil, fmt.Errorf("failed marshalling acl: %v", err)
+				return nil, fmt.Errorf("failed getInACLRule: %v", err)
 			}
-
-			inPol := hcn.EndpointPolicy{
-				Type:     hcn.ACL,
-				Settings: rawJSON,
-			}
-
-			rawData, err := json.Marshal(inPol)
-			inPolicy := network.Policy{
-				Type: network.EndpointPolicy,
-				Data: rawData}
-
-			if err != nil {
-				return nil, fmt.Errorf("failed marshalling acl: %v", err)
-			}
-
-			epInfo.Policies = append(epInfo.Policies, inPolicy)
+			epInfo.Policies = append(epInfo.Policies, *pol)
 		}
 	}
 
