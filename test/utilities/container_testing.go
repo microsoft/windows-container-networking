@@ -64,7 +64,7 @@ func (ci *ContainerInfo) RunContainerConnectivityTest(t *testing.T, optionalIp s
 	t.Logf("Succeeded!")
 
 	t.Logf("Container Connectivity From Host ...")
-	contTest.PingFromHost(ci.Endpoint.IpConfigurations[0].IpAddress)
+	err = contTest.PingFromHost(ci.Endpoint.IpConfigurations[0].IpAddress)
 	if err != nil {
 		t.Errorf("PingFromHost Failed: %v", err)
 		return err
