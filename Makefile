@@ -24,7 +24,6 @@ DEV_ENV_CMD_IT := docker run -it ${DEV_ENV_OPTS} ${DEV_ENV_IMAGE}
 DEV_CMD_RUN := docker run ${DEV_ENV_OPTS}
 
 # Docker plugin image parameters.
-
 VERSION ?= $(shell git describe --tags --always --dirty)
 
 ENSURE_OUTPUTDIR_EXISTS := $(shell mkdir -p $(OUTPUTDIR))
@@ -44,7 +43,7 @@ dev:
 # Clean all build artifacts.
 .PHONY: clean
 clean:
-	rm -rf $(OUTPUTDIR)
+	rm -rf $(OUTPUTDIR) release
 
 $(OUTPUTDIR)/sdnbridge $(OUTPUTDIR)/sdnoverlay $(OUTPUTDIR)/nat : $(CNIFILES)
 	GOOS=windows GOARCH=amd64 go build -v -o $(OUTPUTDIR)/$(subst $(OUTPUTDIR)/,,$@).exe -ldflags "-X main.version=$(VERSION) -s -w" $(CNI_NET_DIR)/$(subst $(OUTPUTDIR)/,,$@)/*.go
@@ -56,3 +55,9 @@ test :
 .PHONY : format
 format :
 	gofmt -s -l -w ./common/* ./cni/* ./network/* ./plugins/* ./test/*
+
+.PHONY : release
+release : all
+	mkdir -p release; \
+	zip -jrmv release/windows-container-networking-cni-amd64-$(VERSION).zip out; \
+	for file in ./release/*.zip ; do shasum -a 512 $$file > $$file.sha512 ; done
