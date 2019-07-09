@@ -255,9 +255,14 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) *network.Networ
 func getInACLRule(mapping *PortMapping, aclPriority uint16) (*network.Policy, error) {
 
 	var err error
+	// protocol can be passed either as a number or a name
+	protocolInt, err := network.GetPortEnumValue(mapping.Protocol)
+	if err != nil {
+		return nil, err
+	}
 
 	in := hcn.AclPolicySetting{
-		Protocols:  mapping.Protocol,
+		Protocols:  strconv.Itoa(int(protocolInt)),
 		Action:     hcn.ActionTypeAllow,
 		Direction:  hcn.DirectionTypeIn,
 		LocalPorts: strconv.Itoa(mapping.ContainerPort),

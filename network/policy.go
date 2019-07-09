@@ -24,11 +24,9 @@ type Policy struct {
 	Data json.RawMessage
 }
 
-// GetPortMappingPolicy creates an HCN PortMappingPolicy and stores it in CNI Policy.
-func GetPortMappingPolicy(externalPort int, internalPort int, protocol string, flags uint32) (Policy, error) {
+func GetPortEnumValue(protocol string) (uint32, error) {
 	var protocolInt uint32
 
-	// protocol can be passed either as a number or a name
 	u, error := strconv.ParseUint(protocol, 0, 10)
 	if error != nil {
 		switch strings.ToLower(protocol) {
@@ -48,10 +46,22 @@ func GetPortMappingPolicy(externalPort int, internalPort int, protocol string, f
 			protocolInt = 2
 			break
 		default:
-			return Policy{}, errors.New("invalid protocol supplied to port mapping policy")
+			return 0, errors.New("invalid protocol supplied to port mapping policy")
 		}
 	} else {
 		protocolInt = uint32(u)
+	}
+
+	return protocolInt, nil
+}
+
+// GetPortMappingPolicy creates an HCN PortMappingPolicy and stores it in CNI Policy.
+func GetPortMappingPolicy(externalPort int, internalPort int, protocol string, flags uint32) (Policy, error) {
+
+	// protocol can be passed either as a number or a name
+	protocolInt, err := GetPortEnumValue(protocol)
+	if err != nil {
+		return Policy{}, err
 	}
 
 	portMappingPolicy := hcn.PortMappingPolicySetting{
