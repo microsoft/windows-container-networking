@@ -16,6 +16,7 @@ pipeline {
                bat '''
                set GOPATH=%cd%;C:\\users\\nathan\\go
                cd src/github.com/Microsoft/windows-container-networking
+               make vendor
                make all
                '''
            }
