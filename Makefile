@@ -43,10 +43,10 @@ dev:
 # Clean all build artifacts.
 .PHONY: clean
 clean:
-	rm -rf $(OUTPUTDIR) release
+	rm -rf $(OUTPUTDIR) release vendor
 
 $(OUTPUTDIR)/sdnbridge $(OUTPUTDIR)/sdnoverlay $(OUTPUTDIR)/nat : $(CNIFILES)
-	GOOS=windows GOARCH=amd64 go build -v -o $(OUTPUTDIR)/$(subst $(OUTPUTDIR)/,,$@).exe -ldflags "-X main.version=$(VERSION) -s -w" $(CNI_NET_DIR)/$(subst $(OUTPUTDIR)/,,$@)/*.go
+	GOOS=windows GOARCH=amd64 go build -v -mod=vendor -o $(OUTPUTDIR)/$(subst $(OUTPUTDIR)/,,$@).exe -ldflags "-X main.version=$(VERSION) -s -w" $(CNI_NET_DIR)/$(subst $(OUTPUTDIR)/,,$@)/*.go
 
 .PHONY: test
 test :
@@ -55,6 +55,10 @@ test :
 .PHONY : format
 format :
 	gofmt -s -l -w ./common/* ./cni/* ./network/* ./plugins/* ./test/*
+
+.PHONY : vendor
+vendor :
+	go mod vendor
 
 .PHONY : release
 release : all

@@ -68,7 +68,7 @@ func GetPortMappingPolicy(externalPort int, internalPort int, protocol string, f
 		ExternalPort: uint16(externalPort),
 		InternalPort: uint16(internalPort),
 		Protocol:     protocolInt,
-		Flags:        flags,
+		Flags:        hcn.NatFlags(flags),
 	}
 	rawPolicy, _ := json.Marshal(portMappingPolicy)
 	endpointPolicy := hcn.EndpointPolicy{
