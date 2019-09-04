@@ -43,7 +43,7 @@ func (plugin *Plugin) Uninitialize() {
 // Execute executes the CNI command.
 func (plugin *Plugin) Execute(api PluginApi) error {
 	// Set supported CNI versions.
-	pluginInfo := cniVers.PluginSupports(Version)
+	pluginInfo := cniVers.PluginSupports(VersionsSupported...)
 
 	// Parse args and call the appropriate cmd handler.
 	cniErr := cniSkel.PluginMainWithError(api.Add, nil, api.Delete, pluginInfo, "CNI plugin WinCni")

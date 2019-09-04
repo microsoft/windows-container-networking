@@ -14,20 +14,20 @@ import (
 	network "github.com/Microsoft/windows-container-networking/network"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	cniTypes020 "github.com/containernetworking/cni/pkg/types/020"
+	cniTypesCurr "github.com/containernetworking/cni/pkg/types/current"
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	// Supported CNI versions.
-	Version = "0.2.0"
-
 	// CNI commands.
 	CmdAdd = "ADD"
 	CmdDel = "DEL"
 
 	Internal = "internal"
 )
+
+// Supported CNI versions.
+var VersionsSupported = []string{"0.2.0", "0.3.0"}
 
 type KVP struct {
 	Name  string          `json:"name"`
@@ -345,27 +345,34 @@ func (config *NetworkConfig) GetEndpointInfo(
 	return epInfo, nil
 }
 
-// GetResult gets the result object
-func GetResult(network *network.NetworkInfo, endpoint *network.EndpointInfo) Result {
+// GetCurrResult gets the result object
+func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo, ifname string) cniTypesCurr.Result {
+	result := cniTypesCurr.Result{
+		IPs:    []*cniTypesCurr.IPConfig{},
+		Routes: []*cniTypes.Route{}}
+
 	var iFace = GetInterface(endpoint)
 	var ip = GetIP(network, endpoint)
-	return Result{
-		CniVersion: Version,
-		Interfaces: []Interface{iFace},
-		IP:         []IP{ip},
-	}
-}
+	ip.InterfaceIndex = 0
 
-// GetResult020 gets the v020 result object
-func GetResult020(network *network.NetworkInfo, endpoint *network.EndpointInfo) cniTypes020.Result {
-	var ip = GetIP(network, endpoint)
-	var ip4 = &cniTypes020.IPConfig{
-		IP:      net.IPNet(ip.Address),
-		Gateway: ip.Gateway,
+	cIP := cniTypesCurr.IPConfig{
+		Version: ip.Version,
+		Address: net.IPNet{
+			IP:   ip.Address.IP,
+			Mask: ip.Address.Mask},
+		Gateway:   ip.Gateway,
+		Interface: &ip.InterfaceIndex,
 	}
-	return cniTypes020.Result{
-		IP4: ip4,
+	result.IPs = append(result.IPs, &cIP)
+
+	// Add Interfaces to result.
+	iface := &cniTypesCurr.Interface{
+		Name: ifname,
+		Mac:  string(iFace.MacAddress),
 	}
+	result.Interfaces = append(result.Interfaces, iface)
+
+	return result
 }
 
 // GetIP returns the IP for the corresponding endpoint
