@@ -148,7 +148,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 
 	// If Ipam was provided, allocate a pool and obtain V4 address
 	if cniConfig.Ipam.Type != "" {
-		err = allocateIpam(networkInfo, epInfo, cniConfig)
+		err = allocateIpam(networkInfo, epInfo, cniConfig, cniConfig.OptionalFlags.ForceBridgeGateway)
 		if err != nil {
 			// Error was logged by allocateIpam.
 			return err
@@ -168,7 +168,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 
 	// Apply the Network Policy for Endpoint
 	epInfo.Policies = append(epInfo.Policies, networkInfo.Policies...)
-
+	
 	epInfo, err = plugin.nm.CreateEndpoint(nwConfig.ID, epInfo, args.Netns)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to create endpoint, error : %v.", err)
@@ -185,7 +185,8 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 func allocateIpam(
 	networkInfo *network.NetworkInfo,
 	endpointInfo *network.EndpointInfo,
-	cniConfig *cni.NetworkConfig) error {
+	cniConfig *cni.NetworkConfig,
+    forceBridgeGateway bool) error {
 	var result cniTypes.Result
 	var resultImpl *cniTypesImpl.Result
 
@@ -211,6 +212,12 @@ func allocateIpam(
 		networkInfo.Subnets = append(networkInfo.Subnets, subnetInfo)
 		endpointInfo.IPAddress = resultImpl.IP4.IP.IP
 		endpointInfo.Gateway = resultImpl.IP4.Gateway
+
+		if forceBridgeGateway == true {
+			endpointInfo.Gateway = resultImpl.IP4.IP.IP.Mask(resultImpl.IP4.IP.Mask)
+			endpointInfo.Gateway[3] = 2;
+		}
+		
 		endpointInfo.Subnet = resultImpl.IP4.IP
 
 		for _, route := range resultImpl.IP4.Routes {

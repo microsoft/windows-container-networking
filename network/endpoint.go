@@ -37,8 +37,12 @@ type RouteInfo struct {
 func (endpoint *EndpointInfo) GetHostComputeEndpoint() *hcn.HostComputeEndpoint {
 	// Check for nil on address objects.
 	ipAddr := ""
+	ipConfig := []hcn.IpConfig{}
 	if endpoint.IPAddress != nil {
 		ipAddr = endpoint.IPAddress.String()
+		ipConfig = append(ipConfig, hcn.IpConfig{
+			IpAddress: ipAddr,
+		})
 	}
 	macAddr := ""
 	if endpoint.MacAddress != nil {
@@ -66,11 +70,7 @@ func (endpoint *EndpointInfo) GetHostComputeEndpoint() *hcn.HostComputeEndpoint 
 				DestinationPrefix: "0.0.0.0/0",
 			},
 		},
-		IpConfigurations: []hcn.IpConfig{
-			{
-				IpAddress: ipAddr,
-			},
-		},
+		IpConfigurations: ipConfig,
 		SchemaVersion: hcn.SchemaVersion{
 			Major: 2,
 			Minor: 0,
