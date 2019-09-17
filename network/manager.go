@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/Microsoft/windows-container-networking/common"
+	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
 )
@@ -147,9 +148,20 @@ func (nm *networkManager) DeleteEndpoint(endpointID string) error {
 	}
 
 	// Remove this endpoint from the namespace
-	err = hcn.RemoveNamespaceEndpoint(hcnEndpoint.HostComputeNamespace, hcnEndpoint.Id)
-	if err != nil {
-		return fmt.Errorf("error removing endpoint from namespace %v : endpoint %v", err, hcnEndpoint)
+	epNamespace, err := hcn.GetNamespaceByID(hcnEndpoint.HostComputeNamespace)
+	// If namespace was not found, that's ok, we'll just delete the endpoint and clear the error.
+	if hcn.IsNotFoundError(err) {
+		logrus.Debugf("[cni-net] Namespace was not found error, err:%v", err)
+	} else if err != nil {
+		return fmt.Errorf("error while attempting to get namespace, err:%v", err)
+	}
+
+	// In this case the namespace was found, so we want to properly remove it before deleting the endpoint.
+	if epNamespace != nil {
+		err = hcn.RemoveNamespaceEndpoint(hcnEndpoint.HostComputeNamespace, hcnEndpoint.Id)
+		if err != nil {
+			return fmt.Errorf("error removing endpoint from namespace %v : endpoint %v", err, hcnEndpoint)
+		}
 	}
 
 	err = hcnEndpoint.Delete()
