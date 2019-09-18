@@ -150,8 +150,8 @@ func (nm *networkManager) DeleteEndpoint(endpointID string) error {
 	// Remove this endpoint from the namespace
 	epNamespace, err := hcn.GetNamespaceByID(hcnEndpoint.HostComputeNamespace)
 	// If namespace was not found, that's ok, we'll just delete the endpoint and clear the error.
-	if hcn.IsNotFoundError(err) {
-		logrus.Debugf("[cni-net] Namespace was not found error, err:%v", err)
+	if hcn.IsNotFoundError(err) || hcnEndpoint.HostComputeNamespace == "" {
+		logrus.Debugf("[cni-net] Namespace [%v] was not found error or non-existent, err:%v", hcnEndpoint.HostComputeNamespace, err)
 	} else if err != nil {
 		return fmt.Errorf("error while attempting to get namespace, err:%v", err)
 	}
