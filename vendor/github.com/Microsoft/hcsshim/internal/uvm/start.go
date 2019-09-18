@@ -3,6 +3,7 @@ package uvm
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,11 +14,21 @@ import (
 	"time"
 
 	"github.com/Microsoft/hcsshim/internal/gcs"
-
+	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/logfields"
 	"github.com/Microsoft/hcsshim/internal/schema1"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
+
+// entropyBytes is the number of bytes of random data to send to a Linux UVM
+// during boot to seed the CRNG. There is not much point in making this too
+// large since the random data collected from the host is likely computed from a
+// relatively small key (256 bits?), so additional bytes would not actually
+// increase the entropy of the guest's pool. However, send enough to convince
+// containers that there is a large amount of entropy since this idea is
+// generally misunderstood.
+const entropyBytes = 512
 
 type gcsLogEntryStandard struct {
 	Time    time.Time    `json:"time"`
@@ -104,71 +115,60 @@ func parseLogrus(vmid string) func(r io.Reader) {
 	}
 }
 
-type acceptResult struct {
-	c   net.Conn
-	err error
-}
-
-func processOutput(ctx context.Context, l net.Listener, doneChan chan struct{}, handler OutputHandler) {
-	defer close(doneChan)
-
-	ch := make(chan acceptResult)
-	go func() {
-		c, err := l.Accept()
-		ch <- acceptResult{c, err}
-	}()
-
-	select {
-	case <-ctx.Done():
-		l.Close()
-		return
-	case ar := <-ch:
-		c, err := ar.c, ar.err
-		l.Close()
-		if err != nil {
-			logrus.Error("accepting log socket: ", err)
-			return
-		}
-		defer c.Close()
-
-		handler(c)
-	}
-}
-
 // Start synchronously starts the utility VM.
-func (uvm *UtilityVM) Start() (err error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), 2*time.Minute)
+func (uvm *UtilityVM) Start(ctx context.Context) (err error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	g, gctx := errgroup.WithContext(ctx)
+	defer g.Wait()
 	defer cancel()
-	op := "uvm::Start"
-	log := logrus.WithFields(logrus.Fields{
-		logfields.UVMID: uvm.id,
-	})
-	log.Debug(op + " - Begin Operation")
-	defer func() {
-		if err != nil {
-			log.Data[logrus.ErrorKey] = err
-			log.Error(op + " - End Operation - Error")
-		} else {
-			log.Debug(op + " - End Operation - Success")
-		}
-	}()
+
+	// Prepare to provide entropy to the init process in the background. This
+	// must be done in a goroutine since, when using the internal bridge, the
+	// call to Start() will block until the GCS launches, and this cannot occur
+	// until the host accepts and closes the entropy connection.
+	if uvm.entropyListener != nil {
+		g.Go(func() error {
+			conn, err := uvm.acceptAndClose(gctx, uvm.entropyListener)
+			uvm.entropyListener = nil
+			if err != nil {
+				return fmt.Errorf("failed to connect to entropy socket: %s", err)
+			}
+			defer conn.Close()
+			_, err = io.CopyN(conn, rand.Reader, entropyBytes)
+			if err != nil {
+				return fmt.Errorf("failed to write entropy: %s", err)
+			}
+			return nil
+		})
+	}
 
 	if uvm.outputListener != nil {
-		ctx, cancel := context.WithCancel(context.Background())
-		go processOutput(ctx, uvm.outputListener, uvm.outputProcessingDone, uvm.outputHandler)
-		uvm.outputProcessingCancel = cancel
-		uvm.outputListener = nil
+		g.Go(func() error {
+			conn, err := uvm.acceptAndClose(gctx, uvm.outputListener)
+			uvm.outputListener = nil
+			if err != nil {
+				close(uvm.outputProcessingDone)
+				return fmt.Errorf("failed to connect to log socket: %s", err)
+			}
+			go func() {
+				uvm.outputHandler(conn)
+				close(uvm.outputProcessingDone)
+			}()
+			return nil
+		})
 	}
-	err = uvm.hcsSystem.Start()
+
+	err = uvm.hcsSystem.Start(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err != nil {
-			uvm.hcsSystem.Terminate()
+			uvm.hcsSystem.Terminate(ctx)
 			uvm.hcsSystem.Wait()
 		}
 	}()
+
 	// Start waiting on the utility VM.
 	uvm.exitCh = make(chan struct{})
 	go func() {
@@ -179,6 +179,13 @@ func (uvm *UtilityVM) Start() (err error) {
 		uvm.exitErr = err
 		close(uvm.exitCh)
 	}()
+
+	// Collect any errors from writing entropy or establishing the log
+	// connection.
+	if err = g.Wait(); err != nil {
+		return err
+	}
+
 	if uvm.gcListener != nil {
 		// Accept the GCS connection.
 		conn, err := uvm.acceptAndClose(ctx, uvm.gcListener)
@@ -189,7 +196,7 @@ func (uvm *UtilityVM) Start() (err error) {
 		// Start the GCS protocol.
 		gcc := &gcs.GuestConnectionConfig{
 			Conn:     conn,
-			Log:      logrus.WithField(logfields.UVMID, uvm.id),
+			Log:      log.G(ctx).WithField(logfields.UVMID, uvm.id),
 			IoListen: gcs.HvsockIoListen(uvm.runtimeID),
 		}
 		uvm.gc, err = gcc.Connect(ctx)
@@ -200,7 +207,7 @@ func (uvm *UtilityVM) Start() (err error) {
 		uvm.protocol = uvm.gc.Protocol()
 	} else {
 		// Cache the guest connection properties.
-		properties, err := uvm.hcsSystem.Properties(schema1.PropertyTypeGuestConnection)
+		properties, err := uvm.hcsSystem.Properties(ctx, schema1.PropertyTypeGuestConnection)
 		if err != nil {
 			return err
 		}

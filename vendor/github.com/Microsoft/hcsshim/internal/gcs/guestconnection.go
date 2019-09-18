@@ -2,6 +2,9 @@ package gcs
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,9 +15,12 @@ import (
 	"github.com/Microsoft/go-winio"
 	"github.com/Microsoft/go-winio/pkg/guid"
 	"github.com/Microsoft/hcsshim/internal/cow"
+	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/logfields"
+	"github.com/Microsoft/hcsshim/internal/oc"
 	"github.com/Microsoft/hcsshim/internal/schema1"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/trace"
 )
 
 const (
@@ -51,7 +57,11 @@ type GuestConnectionConfig struct {
 }
 
 // Connect establishes a GCS connection. `gcc.Conn` will be closed by this function.
-func (gcc *GuestConnectionConfig) Connect(ctx context.Context) (*GuestConnection, error) {
+func (gcc *GuestConnectionConfig) Connect(ctx context.Context) (_ *GuestConnection, err error) {
+	ctx, span := trace.StartSpan(ctx, "gcs::GuestConnectionConfig::Connect")
+	defer span.End()
+	defer func() { oc.SetSpanStatus(span, err) }()
+
 	gc := &GuestConnection{
 		nextPort:   firstIoChannelVsockPort,
 		notifyChs:  make(map[string]chan struct{}),
@@ -63,7 +73,7 @@ func (gcc *GuestConnectionConfig) Connect(ctx context.Context) (*GuestConnection
 		gc.brdg.Wait()
 		gc.clearNotifies()
 	}()
-	err := gc.connect(ctx)
+	err = gc.connect(ctx)
 	if err != nil {
 		gc.Close()
 		return nil, err
@@ -115,7 +125,7 @@ func (gc *GuestConnection) connect(ctx context.Context) (err error) {
 	}
 	if resp.Capabilities.SendHostCreateMessage {
 		createReq := containerCreate{
-			requestBase: makeRequest(nullContainerID),
+			requestBase: makeRequest(ctx, nullContainerID),
 			ContainerConfig: anyInString{&uvmConfig{
 				SystemType: "Container",
 			}},
@@ -126,7 +136,7 @@ func (gc *GuestConnection) connect(ctx context.Context) (err error) {
 			return err
 		}
 		if resp.Capabilities.SendHostStartMessage {
-			startReq := makeRequest(nullContainerID)
+			startReq := makeRequest(ctx, nullContainerID)
 			var startResp responseBase
 			err = gc.brdg.RPC(ctx, rpcStart, &startReq, &startResp, true)
 			if err != nil {
@@ -139,13 +149,32 @@ func (gc *GuestConnection) connect(ctx context.Context) (err error) {
 
 // Modify sends a modify settings request to the null container. This is
 // generally used to prepare virtual hardware that has been added to the guest.
-func (gc *GuestConnection) Modify(ctx context.Context, settings interface{}) error {
+func (gc *GuestConnection) Modify(ctx context.Context, settings interface{}) (err error) {
+	ctx, span := trace.StartSpan(ctx, "gcs::GuestConnection::Modify")
+	defer span.End()
+	defer func() { oc.SetSpanStatus(span, err) }()
+
 	req := containerModifySettings{
-		requestBase: makeRequest(nullContainerID),
+		requestBase: makeRequest(ctx, nullContainerID),
 		Request:     settings,
 	}
 	var resp responseBase
 	return gc.brdg.RPC(ctx, rpcModifySettings, &req, &resp, false)
+}
+
+func (gc *GuestConnection) DumpStacks(ctx context.Context) (response string, err error) {
+	ctx, span := trace.StartSpan(ctx, "gcs::GuestConnection::DumpStacks")
+	defer span.End()
+	defer func() { oc.SetSpanStatus(span, err) }()
+
+	req := dumpStacksRequest{
+		requestBase: makeRequest(ctx, nullContainerID),
+	}
+
+	var resp dumpStacksResponse
+
+	err = gc.brdg.RPC(ctx, rpcDumpStacks, &req, &resp, false)
+	return resp.GuestStacks, err
 }
 
 // Close terminates the guest connection. It is undefined to call any other
@@ -158,8 +187,12 @@ func (gc *GuestConnection) Close() error {
 }
 
 // CreateProcess creates a process in the container host.
-func (gc *GuestConnection) CreateProcess(settings interface{}) (cow.Process, error) {
-	return gc.exec(context.TODO(), nullContainerID, settings)
+func (gc *GuestConnection) CreateProcess(ctx context.Context, settings interface{}) (_ cow.Process, err error) {
+	ctx, span := trace.StartSpan(ctx, "gcs::GuestConnection::CreateProcess")
+	defer span.End()
+	defer func() { oc.SetSpanStatus(span, err) }()
+
+	return gc.exec(ctx, nullContainerID, settings)
 }
 
 // OS returns the operating system of the container's host, "windows" or "linux".
@@ -222,8 +255,28 @@ func (gc *GuestConnection) clearNotifies() {
 	}
 }
 
-func makeRequest(cid string) requestBase {
-	return requestBase{
+func makeRequest(ctx context.Context, cid string) requestBase {
+	r := requestBase{
 		ContainerID: cid,
 	}
+	span := trace.FromContext(ctx)
+	if span != nil {
+		sc := span.SpanContext()
+		r.OpenCensusSpanContext = &ocspancontext{
+			TraceID:      hex.EncodeToString(sc.TraceID[:]),
+			SpanID:       hex.EncodeToString(sc.SpanID[:]),
+			TraceOptions: uint32(sc.TraceOptions),
+		}
+		if sc.Tracestate != nil {
+			entries := sc.Tracestate.Entries()
+			if len(entries) > 0 {
+				if bytes, err := json.Marshal(sc.Tracestate.Entries()); err == nil {
+					r.OpenCensusSpanContext.Tracestate = base64.StdEncoding.EncodeToString(bytes)
+				} else {
+					log.G(ctx).WithError(err).Warn("failed to encode OpenCensus Tracestate")
+				}
+			}
+		}
+	}
+	return r
 }

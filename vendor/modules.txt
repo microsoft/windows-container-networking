@@ -1,20 +1,20 @@
-# github.com/Microsoft/go-winio v0.4.13-0.20190625174015-d2ef9cfdac5d
+# github.com/Microsoft/go-winio v0.4.14
 github.com/Microsoft/go-winio/pkg/etwlogrus
 github.com/Microsoft/go-winio/vhd
 github.com/Microsoft/go-winio/pkg/guid
 github.com/Microsoft/go-winio/pkg/etw
 github.com/Microsoft/go-winio
-# github.com/Microsoft/hcsshim v0.8.7-0.20190718192247-593dfadf010b
+# github.com/Microsoft/hcsshim v0.8.7-0.20190916181005-bd9b25532450
 github.com/Microsoft/hcsshim/hcn
 github.com/Microsoft/hcsshim
 github.com/Microsoft/hcsshim/pkg/go-runhcs
 github.com/Microsoft/hcsshim/test/functional/utilities
 github.com/Microsoft/hcsshim/internal/cni
+github.com/Microsoft/hcsshim/internal/hcs
 github.com/Microsoft/hcsshim/internal/hcserror
 github.com/Microsoft/hcsshim/internal/interop
 github.com/Microsoft/hcsshim/internal/regstate
 github.com/Microsoft/hcsshim/internal/runhcs
-github.com/Microsoft/hcsshim/internal/hcs
 github.com/Microsoft/hcsshim/internal/hns
 github.com/Microsoft/hcsshim/internal/mergemaps
 github.com/Microsoft/hcsshim/internal/schema1
@@ -27,6 +27,7 @@ github.com/Microsoft/hcsshim/internal/log
 github.com/Microsoft/hcsshim/internal/logfields
 github.com/Microsoft/hcsshim/internal/oc
 github.com/Microsoft/hcsshim/internal/timeout
+github.com/Microsoft/hcsshim/internal/vmcompute
 github.com/Microsoft/hcsshim/internal/schema2
 github.com/Microsoft/hcsshim/internal/longpath
 github.com/Microsoft/hcsshim/internal/safefile

@@ -1,9 +1,11 @@
 package hcsoci
 
 import (
+	"context"
 	"os"
 
 	"github.com/Microsoft/hcsshim/internal/hns"
+	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/sirupsen/logrus"
 )
@@ -51,16 +53,24 @@ type Resources struct {
 	// addedNetNSToVM indicates if the network namespace has been added to the containers utility VM
 	addedNetNSToVM bool
 
-	// scsiMounts is an array of the host-paths mounted into a utility VM to
-	// support scsi device passthrough.
-	scsiMounts []string
+	// scsiMounts is an array of the vhd's mounted into a utility VM to support
+	// scsi device passthrough.
+	scsiMounts []scsiMount
+}
+
+type scsiMount struct {
+	// path is the host path to the vhd that is mounted.
+	path string
+	// autoManage if `true` means that on cleanup, the runtime should
+	// automatically delete this vhd.
+	autoManage bool
 }
 
 // TODO: Method on the resources?
-func ReleaseResources(r *Resources, vm *uvm.UtilityVM, all bool) error {
+func ReleaseResources(ctx context.Context, r *Resources, vm *uvm.UtilityVM, all bool) error {
 	if vm != nil && r.addedNetNSToVM {
-		if err := vm.RemoveNetNS(r.netNS); err != nil {
-			logrus.Warn(err)
+		if err := vm.RemoveNetNS(ctx, r.netNS); err != nil {
+			log.G(ctx).Warn(err)
 		}
 		r.addedNetNSToVM = false
 	}
@@ -73,7 +83,7 @@ func ReleaseResources(r *Resources, vm *uvm.UtilityVM, all bool) error {
 				if !os.IsNotExist(err) {
 					return err
 				}
-				logrus.WithFields(logrus.Fields{
+				log.G(ctx).WithFields(logrus.Fields{
 					"endpointID": endpoint,
 					"netID":      r.NetNS(),
 				}).Warn("removing endpoint from namespace: does not exist")
@@ -93,7 +103,7 @@ func ReleaseResources(r *Resources, vm *uvm.UtilityVM, all bool) error {
 		if vm == nil || all {
 			op = UnmountOperationAll
 		}
-		err := UnmountContainerLayers(r.layers, r.containerRootInUVM, vm, op)
+		err := UnmountContainerLayers(ctx, r.layers, r.containerRootInUVM, vm, op)
 		if err != nil {
 			return err
 		}
@@ -103,7 +113,7 @@ func ReleaseResources(r *Resources, vm *uvm.UtilityVM, all bool) error {
 	if all {
 		for len(r.vsmbMounts) != 0 {
 			mount := r.vsmbMounts[len(r.vsmbMounts)-1]
-			if err := vm.RemoveVSMB(mount); err != nil {
+			if err := vm.RemoveVSMB(ctx, mount); err != nil {
 				return err
 			}
 			r.vsmbMounts = r.vsmbMounts[:len(r.vsmbMounts)-1]
@@ -111,18 +121,23 @@ func ReleaseResources(r *Resources, vm *uvm.UtilityVM, all bool) error {
 
 		for len(r.plan9Mounts) != 0 {
 			mount := r.plan9Mounts[len(r.plan9Mounts)-1]
-			if err := vm.RemovePlan9(mount); err != nil {
+			if err := vm.RemovePlan9(ctx, mount); err != nil {
 				return err
 			}
 			r.plan9Mounts = r.plan9Mounts[:len(r.plan9Mounts)-1]
 		}
 
-		for _, path := range r.scsiMounts {
-			if err := vm.RemoveSCSI(path); err != nil {
+		for _, sm := range r.scsiMounts {
+			if err := vm.RemoveSCSI(ctx, sm.path); err != nil {
 				return err
 			}
-			r.scsiMounts = nil
+			if sm.autoManage {
+				if err := os.Remove(sm.path); err != nil {
+					log.G(ctx).WithError(err).Warnf("failed to remove automanage-virtual-disk at: %q", sm.path)
+				}
+			}
 		}
+		r.scsiMounts = nil
 	}
 
 	return nil
