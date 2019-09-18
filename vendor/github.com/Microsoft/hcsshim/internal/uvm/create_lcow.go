@@ -1,6 +1,7 @@
 package uvm
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -8,16 +9,18 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Microsoft/hcsshim/internal/gcs"
-
 	"github.com/Microsoft/go-winio"
 	"github.com/Microsoft/go-winio/pkg/guid"
+	"github.com/Microsoft/hcsshim/internal/gcs"
+	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/logfields"
 	"github.com/Microsoft/hcsshim/internal/mergemaps"
+	"github.com/Microsoft/hcsshim/internal/oc"
 	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 	"github.com/Microsoft/hcsshim/internal/schemaversion"
 	"github.com/Microsoft/hcsshim/osversion"
 	"github.com/sirupsen/logrus"
+	"go.opencensus.io/trace"
 )
 
 type PreferredRootFSType int
@@ -26,6 +29,7 @@ const (
 	PreferredRootFSTypeInitRd PreferredRootFSType = iota
 	PreferredRootFSTypeVHD
 
+	entropyVsockPort  = 1
 	linuxLogVsockPort = 109
 )
 
@@ -130,20 +134,10 @@ func NewDefaultOptionsLCOW(id, owner string) *OptionsLCOW {
 }
 
 // CreateLCOW creates an HCS compute system representing a utility VM.
-func CreateLCOW(opts *OptionsLCOW) (_ *UtilityVM, err error) {
-	op := "uvm::CreateLCOW"
-	log := logrus.WithFields(logrus.Fields{
-		logfields.UVMID: opts.ID,
-	})
-	log.WithField("options", fmt.Sprintf("%+v", opts)).Debug(op + " - Begin Operation")
-	defer func() {
-		if err != nil {
-			log.Data[logrus.ErrorKey] = err
-			log.Error(op + " - End Operation - Error")
-		} else {
-			log.Debug(op + " - End Operation - Success")
-		}
-	}()
+func CreateLCOW(ctx context.Context, opts *OptionsLCOW) (_ *UtilityVM, err error) {
+	ctx, span := trace.StartSpan(ctx, "uvm::CreateLCOW")
+	defer span.End()
+	defer func() { oc.SetSpanStatus(span, err) }()
 
 	if opts.ID == "" {
 		g, err := guid.NewV4()
@@ -152,6 +146,9 @@ func CreateLCOW(opts *OptionsLCOW) (_ *UtilityVM, err error) {
 		}
 		opts.ID = g.String()
 	}
+
+	span.AddAttributes(trace.StringAttribute(logfields.UVMID, opts.ID))
+	log.G(ctx).WithField("options", fmt.Sprintf("%+v", opts)).Debug("uvm::CreateLCOW options")
 
 	// We dont serialize OutputHandler so if it is missing we need to put it back to the default.
 	if opts.OutputHandler == nil {
@@ -174,10 +171,10 @@ func CreateLCOW(opts *OptionsLCOW) (_ *UtilityVM, err error) {
 
 	// To maintain compatability with Docker we need to automatically downgrade
 	// a user CPU count if the setting is not possible.
-	uvm.normalizeProcessorCount(opts.ProcessorCount)
+	uvm.normalizeProcessorCount(ctx, opts.ProcessorCount)
 
 	// Align the requested memory size.
-	memorySizeInMB := uvm.normalizeMemorySize(opts.MemorySizeInMB)
+	memorySizeInMB := uvm.normalizeMemorySize(ctx, opts.MemorySizeInMB)
 
 	kernelFullPath := filepath.Join(opts.BootFilesPath, opts.KernelFile)
 	if _, err := os.Stat(kernelFullPath); os.IsNotExist(err) {
@@ -295,6 +292,7 @@ func CreateLCOW(opts *OptionsLCOW) (_ *UtilityVM, err error) {
 			uvmPath:  "/",
 			refCount: 1,
 		}
+		uvm.vpmemNumDevices++
 	}
 
 	vmDebugging := false
@@ -327,9 +325,12 @@ func CreateLCOW(opts *OptionsLCOW) (_ *UtilityVM, err error) {
 		kernelArgs += " " + opts.KernelBootOptions
 	}
 
+	// Inject initial entropy over vsock during init launch.
+	initArgs := fmt.Sprintf("-e %d", entropyVsockPort)
+
 	// With default options, run GCS with stderr pointing to the vsock port
 	// created below in order to forward guest logs to logrus.
-	initArgs := "/bin/vsockexec"
+	initArgs += " /bin/vsockexec"
 
 	if opts.ForwardStdout {
 		initArgs += fmt.Sprintf(" -o %d", linuxLogVsockPort)
@@ -373,7 +374,13 @@ func CreateLCOW(opts *OptionsLCOW) (_ *UtilityVM, err error) {
 		return nil, fmt.Errorf("failed to merge additional JSON '%s': %s", opts.AdditionHCSDocumentJSON, err)
 	}
 
-	err = uvm.create(fullDoc)
+	err = uvm.create(ctx, fullDoc)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cerate a socket to inject entropy during boot.
+	uvm.entropyListener, err = uvm.listenVsock(entropyVsockPort)
 	if err != nil {
 		return nil, err
 	}
