@@ -51,7 +51,7 @@ func PingTest(c hcsshim.Container, ip string) error {
 
 func CurlTest(c hcsshim.Container, host string) error {
 	p, err := c.CreateProcess(&hcsshim.ProcessConfig{
-		CommandLine:      fmt.Sprintf("curl -IL %s --http1.1", host),
+		CommandLine:      fmt.Sprintf("curl -IL  %s --http1.1", host),
 		CreateStdInPipe:  true,
 		CreateStdOutPipe: true,
 		CreateStdErrPipe: true,
@@ -91,8 +91,6 @@ func GetOutput(p hcsshim.Process) string {
 	buf.ReadFrom(o)
 	return strings.TrimSpace(buf.String())
 }
-
-const image = "mcr.microsoft.com/windows/nanoserver:1809"
 
 func CreateContainer(t *testing.T, ContainerName string, imageName string, namespace string) (func(), error) {
 

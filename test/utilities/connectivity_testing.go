@@ -22,7 +22,8 @@ const (
 
 func getDefaultDns() *cniTypes.DNS {
 	defaultDns := cniTypes.DNS{
-		Nameservers: []string{"8.8.8.8", "11.0.0.10"},
+		//		Nameservers: []string{"8.8.8.8", "11.0.0.10"},
+		Nameservers: []string{"10.50.10.50"},
 		Search:      []string{"svc.cluster.local", "svc.cluster.local"},
 	}
 	return &defaultDns
@@ -41,14 +42,14 @@ func getAddArgs(epPolicies []hcn.EndpointPolicy) []cni.KVP {
 	return addArgs
 }
 
-func getDefaultAddArgs() []cni.KVP {
-	return getAddArgs(getDefaultEndpointPolicies())
+func getDefaultAddArgs(hostIp string) []cni.KVP {
+	return getAddArgs(getDefaultEndpointPolicies(hostIp))
 }
 
-func getDefaultEndpointPolicies() []hcn.EndpointPolicy {
+func getDefaultEndpointPolicies(hostIp string) []hcn.EndpointPolicy {
 	outBoundNatPol := hcn.EndpointPolicy{
 		Type:     "OutBoundNAT",
-		Settings: json.RawMessage(`{"Exceptions":["10.0.0.0/16","172.16.12.0/24"]}`),
+		Settings: json.RawMessage(fmt.Sprintf(`{"Exceptions":["10.0.0.0/16", "%s/32"]}`, hostIp)),
 	}
 	sdnRoutePol := hcn.EndpointPolicy{
 		Type:     "SdnRoute",
@@ -56,7 +57,7 @@ func getDefaultEndpointPolicies() []hcn.EndpointPolicy {
 	}
 	paPol := hcn.EndpointPolicy{
 		Type:     "ProviderAddress",
-		Settings: json.RawMessage(`{"ProviderAddress":"172.16.12.5"}`),
+		Settings: json.RawMessage(fmt.Sprintf(`{"ProviderAddress":"%s"}`, hostIp)),
 	}
 	return []hcn.EndpointPolicy{outBoundNatPol, sdnRoutePol, paPol}
 }
@@ -153,7 +154,7 @@ func CreateGatewayEp(networkId string, ipAddress string) error {
 
 	//Hard Code for now
 	vNicName := fmt.Sprintf(`"vEthernet (%s)"`, gwEp.Name)
-	vEthernet := `"vEthernet (Ethernet 5)"`
+	vEthernet := `"vEthernet (Ethernet)"`
 	os.Setenv("vEthernet", vEthernet)
 	os.Setenv("vNicName", vNicName)
 	cmd := exec.Command("cmd", "/c", "netsh", "int", "ipv4", "set", "int", "%vNicName%", "for=en")
@@ -165,19 +166,14 @@ func CreateGatewayEp(networkId string, ipAddress string) error {
 	cmd = exec.Command("cmd", "/c", "netsh", "int", "ipv4", "add", "route", "10.0.0.0/8", "%vEthernet%", "0.0.0.0", "metric=270")
 	err = cmd.Run()
 	if err != nil {
-		return fmt.Errorf("Route Error: %v", err)
+		return fmt.Errorf("Route 1 Error: %v", err)
 	}
 	cmd = exec.Command("cmd", "/c", "netsh", "int", "ipv4", "add", "route", "10.0.0.0/8", "%vEthernet%", "10.0.0.2", "metric=300")
 	err = cmd.Run()
 	if err != nil {
-		return fmt.Errorf("Route Error: %v", err)
+		return fmt.Errorf("Route 2 Error: %v", err)
 	}
-
-	cmd = exec.Command("cmd", "/c", "netsh", "int", "ipv4", "add", "route", "0.0.0.0/0", "%vEthernet%", "172.16.12.1", "metric=0")
-	err = cmd.Run()
-	if err != nil {
-		return fmt.Errorf("Route Error: %v", err)
-	}
+	
 	os.Unsetenv("vEthernet")
 	os.Unsetenv("vNicName")
 	return nil
@@ -207,9 +203,15 @@ func MakeTestStruct(t *testing.T, testNetwork *hcn.HostComputeNetwork, pluginTyp
 	pt := PluginUnitTest{}
 	epPolicies := []hcn.EndpointPolicy{}
 	addArgs := []cni.KVP{}
+	foundIf, hostIp, err := GetDefaultInterface()
+	t.Logf("Interface Found: [%v] with ip [%v]", foundIf, hostIp)
+	if err != nil {
+		t.Errorf("unable to find interface %s. Testing failed", Interface)
+		return nil
+	}
 	if epPols {
-		epPolicies = getDefaultEndpointPolicies()
-		addArgs = getDefaultAddArgs()
+		epPolicies = getDefaultEndpointPolicies(hostIp.String())
+		addArgs = getDefaultAddArgs(hostIp.String())
 	}
 
 	if cid == "" {
@@ -224,7 +226,7 @@ func MakeTestStruct(t *testing.T, testNetwork *hcn.HostComputeNetwork, pluginTyp
 	netConf := CreateNetworkConf(defaultCniVersion, testNetwork.Name, pluginType, dns, addArgs, netConfPrefix)
 	netJson, _ := json.Marshal(netConf)
 	pt.NeedGW = needGW
-	pt.Create(netJson, testNetwork, epPolicies, dns.Search, dns.Nameservers, cid)
+	pt.Create(netJson, testNetwork, epPolicies, dns.Search, dns.Nameservers, cid, hostIp)
 	return &pt
 }
 
