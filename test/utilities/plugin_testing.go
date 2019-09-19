@@ -9,6 +9,7 @@ import (
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	"strings"
 	"testing"
+	"net"
 )
 
 type PluginUnitTest struct {
@@ -24,20 +25,24 @@ type PluginUnitTest struct {
 	Namespace      *hcn.HostComputeNamespace
 	DummyContainer bool
 	NeedGW         bool
+	HostIp         *net.IP
 }
 
 func (pt *PluginUnitTest) Create(netJson []byte, network *hcn.HostComputeNetwork, expectedPolicies []hcn.EndpointPolicy,
-	expectedSearch []string, expectedNameservers []string, cid string) {
+	expectedSearch []string, expectedNameservers []string, cid string, hostIp* net.IP) {
 	pt.NetConfJson = netJson
 	pt.Network = network
 	pt.Policies = expectedPolicies
 	pt.Search = expectedSearch
 	pt.Nameservers = expectedNameservers
 	pt.ContainerId = cid
+	pt.HostIp = hostIp
+
 }
 
 func (pt *PluginUnitTest) Setup(t *testing.T) error {
 	t.Logf("Setup for Network Plugin of type: %v ...", string(pt.Network.Type))
+	t.Logf("[DEBUG] Using Host IP: [%s]", pt.HostIp.String())
 	var err error
 	pt.Network, err = pt.Network.Create()
 	if err != nil {
@@ -48,12 +53,15 @@ func (pt *PluginUnitTest) Setup(t *testing.T) error {
 	if pt.NeedGW {
 		conf := cni.NetworkConfig{}
 		json.Unmarshal(pt.NetConfJson, &conf)
+
 		err = CreateGatewayEp(pt.Network.Id, conf.Ipam.Routes[0].GW.String())
 		if err != nil {
 			t.Errorf("Error while creating Gateway Endpoint: %v", err)
 			return err
 		}
 	}
+	t.Logf("[DEBUG] Using Host IP: [%s]", pt.HostIp.String())
+
 	t.Log("Succeeded!")
 	return nil
 }
@@ -223,7 +231,7 @@ func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers i
 	t.Logf("Start Connectivity Test")
 	ctList := []*ContainerInfo{}
 	for i := 0; i < numContainers; i++ {
-		cid := fmt.Sprintf("%vTestContainer%d", string(pt.Network.Type), i)
+		cid := fmt.Sprintf("%vTestContainer_%d", string(pt.Network.Type), i)
 		ct := &ContainerInfo{
 			ContainerId: cid,
 			Image:       ImageNano,
@@ -240,11 +248,12 @@ func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers i
 		if i == 0 {
 			continue
 		}
-		err := ctList[0].RunContainerConnectivityTest(t, ctx.Endpoint.IpConfigurations[0].IpAddress)
+		err := ctList[0].RunContainerConnectivityTest(t, pt.HostIp.String(), ctx.Endpoint.IpConfigurations[0].IpAddress)
 		if err != nil {
 			t.Errorf("Failed Container Connectivity: %v", err)
 		}
 	}
+
 
 	for _, ct := range ctList {
 		err := pt.RunDelTest(t, ct)
@@ -256,7 +265,9 @@ func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers i
 	for _, ct := range ctList {
 		ct.Teardown(t)
 	}
+
 	t.Logf("End Connectivity Test")
+
 }
 
 func (pt *PluginUnitTest) RunAll(t *testing.T) {
