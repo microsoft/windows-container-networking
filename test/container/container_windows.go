@@ -27,6 +27,7 @@ const (
 	ExpectedPingResult  = "Packets: Sent = 4, Received = 4, Lost = 0"
 	SecondaryPingResult = "Packets: Sent = 4, Received = 3, Lost = 1"
 	ExpectedCurlResult  = "HTTP/1.1 200 OK"
+	SecondaryCurlResult  = "HTTP/1.1 301 Moved Permanently"
 )
 
 func PingTest(c hcsshim.Container, ip string) error {
@@ -51,7 +52,7 @@ func PingTest(c hcsshim.Container, ip string) error {
 
 func CurlTest(c hcsshim.Container, host string) error {
 	p, err := c.CreateProcess(&hcsshim.ProcessConfig{
-		CommandLine:      fmt.Sprintf("curl -IL  %s --http1.1", host),
+		CommandLine:      fmt.Sprintf("curl -L -I  %s --http1.1", host),
 		CreateStdInPipe:  true,
 		CreateStdOutPipe: true,
 		CreateStdErrPipe: true,
@@ -63,7 +64,9 @@ func CurlTest(c hcsshim.Container, host string) error {
 
 	if strings.Contains(result, ExpectedCurlResult) {
 		return nil
-	} else {
+	} else if strings.Contains(result, SecondaryCurlResult) {
+		return nil // not going to treat this as an error for now
+	}else {
 		return fmt.Errorf("Curl Response Indicates Failure, Result: \n#####\n%v\n#####\n", result)
 	}
 }

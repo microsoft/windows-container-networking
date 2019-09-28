@@ -7,29 +7,34 @@ trigger:
 - master
 
 pool:
-  vmImage: 'Ubuntu-16.04'
+  vmImage: 'windows-2019'
 
 variables:
-  GOBIN:  '$(GOPATH)/bin' # Go binaries path
-  GOROOT: '/usr/local/go1.11' # Go installation path
-  GOPATH: '$(system.defaultWorkingDirectory)/gopath' # Go workspace path
-  GO111MODULE: 'on'
-  modulePath: '$(GOPATH)/src/github.com/$(build.repository.name)' # Path to the module's code
+  GOBIN:  "$(GOPATH)/bin" # Go binaries path
+  GOPATH: "$(system.defaultWorkingDirectory)/gopath" # Go workspace path
+  GO111MODULE: "on"
+  workspacePath: "$(system.defaultWorkingDirectory)" # Path to the module's code
 
 steps:
 - script: |
-    mkdir -p '$(GOBIN)'
-    mkdir -p '$(GOPATH)/pkg'
-    mkdir -p '$(modulePath)'
-    shopt -s extglob
-    shopt -s dotglob
-    mv !(gopath) '$(modulePath)'
-    echo '##vso[task.prependpath]$(GOBIN)'
-    echo '##vso[task.prependpath]$(GOROOT)/bin'
+    mkdir "%GOBIN%"
+    mkdir "%GOPATH%/pkg"
+    mkdir tools
+    echo "%GOBIN%"
+    echo "%GOROOT%/bin"
+    docker pull mcr.microsoft.com/windows/nanoserver:1809
+    ipconfig /all
+    go env
   displayName: 'Set up the Go workspace'
 
 - script: |
     go version
     make all
-  workingDirectory: '$(modulePath)'
-  displayName: 'Get dependencies, then build'
+  displayName: "build"
+
+- script: |
+    bitsadmin  /transfer runhcs /dynamic /priority FOREGROUND /download https://github.com/microsoft/hcsshim/releases/download/v0.8.6/runhcs.exe %workspacePath%\tools\runhcs.exe
+    set PATH=%PATH%;%workspacePath%\tools\
+    echo %PATH%
+    make test
+  displayName: "test"
