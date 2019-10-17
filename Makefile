@@ -10,6 +10,11 @@ CNIFILES = \
 	$(wildcard plugins/*.go) \
 	$(COREFILES)
 
+GOCMD=go
+GOLOCALENV=GO111MODULE=on GOARCH=amd64 GOOS=windows
+GOBUILD=$(GOLOCALENV) $(GOCMD) build -v -mod=vendor
+GOTEST=$(GOLOCALENV) $(GOCMD) test -v -mod=vendor
+
 CNI_NET_DIR = plugins
 OUTPUTDIR = out
 
@@ -46,11 +51,11 @@ clean:
 	rm -rf $(OUTPUTDIR) release vendor
 
 $(OUTPUTDIR)/sdnbridge $(OUTPUTDIR)/sdnoverlay $(OUTPUTDIR)/nat : $(CNIFILES)
-	GOOS=windows GOARCH=amd64 go build -v -mod=vendor -o $(OUTPUTDIR)/$(subst $(OUTPUTDIR)/,,$@).exe -ldflags "-X main.version=$(VERSION) -s -w" $(CNI_NET_DIR)/$(subst $(OUTPUTDIR)/,,$@)/*.go
+	$(GOBUILD) -o $(OUTPUTDIR)/$(subst $(OUTPUTDIR)/,,$@).exe -ldflags "-X main.version=$(VERSION) -s -w" $(CNI_NET_DIR)/$(subst $(OUTPUTDIR)/,,$@)/*.go
 
 .PHONY: test
 test :
-	GOOS=windows GOARCH=amd64 go test -mod=vendor -v ./...
+	$(GOTEST) ./...
 
 .PHONY : format
 format :
