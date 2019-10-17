@@ -138,7 +138,13 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 			// An endpoint already exists in the same network.
 			// Do not allow creation of more endpoints on same network
 			logrus.Debugf("[cni-net] Endpoint exists on same network, ignoring add : [%v].", epInfo)
-			result := cni.GetResult020(nwConfig, hnsEndpoint)
+			// Convert result to the requested CNI version.
+			res := cni.GetCurrResult(nwConfig, hnsEndpoint, args.IfName)
+			result, err := res.GetAsVersion(cniConfig.CniVersion)
+			if err != nil {
+				return err
+			}
+
 			result.Print()
 			return nil
 		}
@@ -175,7 +181,14 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		return err
 	}
 
-	result := cni.GetResult020(nwConfig, epInfo)
+	// Convert result to the requested CNI version.
+	res := cni.GetCurrResult(nwConfig, epInfo, args.IfName)
+	result, err := res.GetAsVersion(cniConfig.CniVersion)
+	if err != nil {
+		return err
+	}
+
+	//	result := cni.GetResult020(nwConfig, epInfo)
 	result.Print()
 	logrus.Debugf("[cni-net] result: %v", result.String())
 	return nil
