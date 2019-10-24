@@ -174,7 +174,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 
 	// Apply the Network Policy for Endpoint
 	epInfo.Policies = append(epInfo.Policies, networkInfo.Policies...)
-	
+
 	epInfo, err = plugin.nm.CreateEndpoint(nwConfig.ID, epInfo, args.Netns)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to create endpoint, error : %v.", err)
@@ -199,7 +199,7 @@ func allocateIpam(
 	networkInfo *network.NetworkInfo,
 	endpointInfo *network.EndpointInfo,
 	cniConfig *cni.NetworkConfig,
-    forceBridgeGateway bool) error {
+	forceBridgeGateway bool) error {
 	var result cniTypes.Result
 	var resultImpl *cniTypesImpl.Result
 
@@ -228,9 +228,9 @@ func allocateIpam(
 
 		if forceBridgeGateway == true {
 			endpointInfo.Gateway = resultImpl.IP4.IP.IP.Mask(resultImpl.IP4.IP.Mask)
-			endpointInfo.Gateway[3] = 2;
+			endpointInfo.Gateway[3] = 2
 		}
-		
+
 		endpointInfo.Subnet = resultImpl.IP4.IP
 
 		for _, route := range resultImpl.IP4.Routes {
@@ -320,8 +320,13 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	// Delete the endpoint.
 	err = plugin.nm.DeleteEndpoint(endpointInfo.ID)
 	if err != nil {
-		logrus.Errorf("[cni-net] Failed to delete endpoint, err:%v", err)
-		return err
+		if hcn.IsNotFoundError(err) {
+			logrus.Debugf("[cni-net] Endpoint was not found error, err:%v", err)
+			return nil
+		} else {
+			logrus.Errorf("[cni-net] Failed to delete endpoint, err:%v", err)
+			return err
+		}
 	}
 	logrus.Debugf("[cni-net] DEL succeeded.")
 	return nil

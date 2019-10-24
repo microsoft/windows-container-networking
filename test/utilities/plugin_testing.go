@@ -7,9 +7,9 @@ import (
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/Microsoft/windows-container-networking/cni"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
+	"net"
 	"strings"
 	"testing"
-	"net"
 )
 
 type PluginUnitTest struct {
@@ -29,7 +29,7 @@ type PluginUnitTest struct {
 }
 
 func (pt *PluginUnitTest) Create(netJson []byte, network *hcn.HostComputeNetwork, expectedPolicies []hcn.EndpointPolicy,
-	expectedSearch []string, expectedNameservers []string, cid string, hostIp* net.IP) {
+	expectedSearch []string, expectedNameservers []string, cid string, hostIp *net.IP) {
 	pt.NetConfJson = netJson
 	pt.Network = network
 	pt.Policies = expectedPolicies
@@ -253,7 +253,6 @@ func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers i
 			t.Errorf("Failed Container Connectivity: %v", err)
 		}
 	}
-
 
 	for _, ct := range ctList {
 		err := pt.RunDelTest(t, ct)

@@ -2,12 +2,12 @@ package util
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/common"
 	"github.com/Microsoft/windows-container-networking/common/core"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	"net"
-	"fmt"
 )
 
 const Interface = "Ethernet"

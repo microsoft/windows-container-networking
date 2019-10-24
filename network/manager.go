@@ -160,13 +160,25 @@ func (nm *networkManager) DeleteEndpoint(endpointID string) error {
 	if epNamespace != nil {
 		err = hcn.RemoveNamespaceEndpoint(hcnEndpoint.HostComputeNamespace, hcnEndpoint.Id)
 		if err != nil {
-			return fmt.Errorf("error removing endpoint from namespace %v : endpoint %v", err, hcnEndpoint)
+			if hcn.IsNotFoundError(err) {
+				logrus.Debugf("[cni-net] Endpoint or Namespace was not found, err: %v", err)
+			} else {
+				return fmt.Errorf("error removing endpoint from namespace %v : endpoint %v", err, hcnEndpoint)
+			}
 		}
 	}
 
 	err = hcnEndpoint.Delete()
 	if err != nil {
-		return fmt.Errorf("error deleting endpoint %v : endpoint %v", err, hcnEndpoint)
+		// We retry this if the delete fails incase the endpoint was deleted between now
+		// and when the endpoint was originally queried
+		hcnEndpoint, nestedErr := hcn.GetEndpointByName(hcnEndpoint.Name)
+		if nestedErr != nil {
+			return nestedErr
+		} else {
+			logrus.Debugf("[cni-net] error deleting endpoint %v : endpoint %v", err, hcnEndpoint)
+			return err
+		}
 	}
 
 	return nil
