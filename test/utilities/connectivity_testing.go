@@ -49,10 +49,10 @@ func getDefaultAddArgs(hostIp string) []cni.KVP {
 func getDefaultEndpointPolicies(hostIp string) []hcn.EndpointPolicy {
 	outBoundNatPol := hcn.EndpointPolicy{
 		Type:     "OutBoundNAT",
-		Settings: json.RawMessage(fmt.Sprintf(`{"Exceptions":["10.0.0.0/16", "%s/32"]}`, hostIp)),
+		Settings: json.RawMessage(fmt.Sprintf(`{"Exceptions":["10.0.0.0/16","%s/32"]}`, hostIp)),
 	}
 	sdnRoutePol := hcn.EndpointPolicy{
-		Type:     "SdnRoute",
+		Type:     "SDNRoute",
 		Settings: json.RawMessage(`{"DestinationPrefix":"11.0.0.0/8","NeedEncap":true}`),
 	}
 	paPol := hcn.EndpointPolicy{
@@ -173,7 +173,7 @@ func CreateGatewayEp(networkId string, ipAddress string) error {
 	if err != nil {
 		return fmt.Errorf("Route 2 Error: %v", err)
 	}
-	
+
 	os.Unsetenv("vEthernet")
 	os.Unsetenv("vNicName")
 	return nil

@@ -106,7 +106,7 @@ type K8SPodEnvArgs struct {
 type OptionalFlags struct {
 	LocalRoutePortMapping bool `json:"localRoutedPortMapping"`
 	AllowAclPortMapping   bool `json:"allowAclPortMapping"`
-	ForceBridgeGateway    bool `json:"forceBridgeGateway"`       // Intended to be temporary workaround
+	ForceBridgeGateway    bool `json:"forceBridgeGateway"` // Intended to be temporary workaround
 
 }
 

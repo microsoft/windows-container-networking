@@ -27,7 +27,7 @@ const (
 	ExpectedPingResult  = "Packets: Sent = 4, Received = 4, Lost = 0"
 	SecondaryPingResult = "Packets: Sent = 4, Received = 3, Lost = 1"
 	ExpectedCurlResult  = "HTTP/1.1 200 OK"
-	SecondaryCurlResult  = "HTTP/1.1 301 Moved Permanently"
+	SecondaryCurlResult = "HTTP/1.1 301 Moved Permanently"
 )
 
 func PingTest(c hcsshim.Container, ip string) error {
@@ -66,7 +66,7 @@ func CurlTest(c hcsshim.Container, host string) error {
 		return nil
 	} else if strings.Contains(result, SecondaryCurlResult) {
 		return nil // not going to treat this as an error for now
-	}else {
+	} else {
 		return fmt.Errorf("Curl Response Indicates Failure, Result: \n#####\n%v\n#####\n", result)
 	}
 }
