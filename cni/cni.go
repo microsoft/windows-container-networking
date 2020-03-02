@@ -143,13 +143,9 @@ func CallPlugin(plugin PluginApi, cmd string, args *cniSkel.CmdArgs, config *Net
 	config.Ipam.Type = savedType
 
 	if err != nil {
-		res := cniTypes.Error{
-			Code:    66,
-			Msg:     "failure in cni",
-			Details: err.Error(),
-		}
+		res := ResolveError(err)
 		res.Print()
-		return nil, err
+		return nil, res
 	}
 
 	// Read back the result.
