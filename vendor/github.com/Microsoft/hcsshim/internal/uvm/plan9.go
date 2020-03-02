@@ -66,7 +66,7 @@ func (uvm *UtilityVM) AddPlan9(ctx context.Context, hostPath string, uvmPath str
 			Flags:        flags,
 			AllowedFiles: allowedNames,
 		},
-		ResourcePath: fmt.Sprintf("VirtualMachine/Devices/Plan9/Shares"),
+		ResourcePath: plan9ShareResourcePath,
 		GuestRequest: guestrequest.GuestRequest{
 			ResourceType: guestrequest.ResourceTypeMappedDirectory,
 			RequestType:  requesttype.Add,
@@ -79,7 +79,7 @@ func (uvm *UtilityVM) AddPlan9(ctx context.Context, hostPath string, uvmPath str
 		},
 	}
 
-	if err := uvm.Modify(ctx, modification); err != nil {
+	if err := uvm.modify(ctx, modification); err != nil {
 		return nil, err
 	}
 
@@ -101,7 +101,7 @@ func (uvm *UtilityVM) RemovePlan9(ctx context.Context, share *Plan9Share) error 
 			AccessName: share.name,
 			Port:       plan9Port,
 		},
-		ResourcePath: fmt.Sprintf("VirtualMachine/Devices/Plan9/Shares"),
+		ResourcePath: plan9ShareResourcePath,
 		GuestRequest: guestrequest.GuestRequest{
 			ResourceType: guestrequest.ResourceTypeMappedDirectory,
 			RequestType:  requesttype.Remove,
@@ -112,7 +112,7 @@ func (uvm *UtilityVM) RemovePlan9(ctx context.Context, share *Plan9Share) error 
 			},
 		},
 	}
-	if err := uvm.Modify(ctx, modification); err != nil {
+	if err := uvm.modify(ctx, modification); err != nil {
 		return fmt.Errorf("failed to remove plan9 share %s from %s: %+v: %s", share.name, uvm.id, modification, err)
 	}
 	return nil
