@@ -4,6 +4,7 @@
 package core
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/Microsoft/go-winio/pkg/etwlogrus"
@@ -28,8 +29,10 @@ func Core() {
 	logrus.SetLevel(logrus.DebugLevel)
 	file, err := os.OpenFile("wincni.log", os.O_CREATE|os.O_WRONLY, os.FileMode(0777))
 	if err != nil {
-		logrus.SetOutput(file)
+		fmt.Println("OpenFile wincni.log error")
+		os.Exit(1)
 	}
+	logrus.SetOutput(file)
 	defer file.Close()
 
 	netPlugin, err := NewPlugin(&config)
