@@ -3,7 +3,7 @@ package uvm
 import (
 	"context"
 	"errors"
-	"path"
+	"fmt"
 
 	"github.com/Microsoft/go-winio/pkg/guid"
 	"github.com/Microsoft/hcsshim/hcn"
@@ -48,7 +48,7 @@ func (uvm *UtilityVM) AddNetNS(ctx context.Context, id string) error {
 					Settings:     hcnNamespace,
 				},
 			}
-			if err := uvm.Modify(ctx, &guestNamespace); err != nil {
+			if err := uvm.modify(ctx, &guestNamespace); err != nil {
 				return err
 			}
 		}
@@ -123,7 +123,7 @@ func (uvm *UtilityVM) RemoveNetNS(ctx context.Context, id string) error {
 						Settings:     hcnNamespace,
 					},
 				}
-				if err := uvm.Modify(ctx, &guestNamespace); err != nil {
+				if err := uvm.modify(ctx, &guestNamespace); err != nil {
 					return err
 				}
 			}
@@ -191,7 +191,7 @@ func (uvm *UtilityVM) addNIC(ctx context.Context, id guid.GUID, endpoint *hns.HN
 					endpoint),
 			},
 		}
-		if err := uvm.Modify(ctx, &preAddRequest); err != nil {
+		if err := uvm.modify(ctx, &preAddRequest); err != nil {
 			return err
 		}
 	}
@@ -199,7 +199,7 @@ func (uvm *UtilityVM) addNIC(ctx context.Context, id guid.GUID, endpoint *hns.HN
 	// Then the Add itself
 	request := hcsschema.ModifySettingRequest{
 		RequestType:  requesttype.Add,
-		ResourcePath: path.Join("VirtualMachine/Devices/NetworkAdapters", id.String()),
+		ResourcePath: fmt.Sprintf(networkResourceFormat, id.String()),
 		Settings: hcsschema.NetworkAdapter{
 			EndpointId: endpoint.Id,
 			MacAddress: endpoint.MacAddress,
@@ -237,7 +237,7 @@ func (uvm *UtilityVM) addNIC(ctx context.Context, id guid.GUID, endpoint *hns.HN
 		}
 	}
 
-	if err := uvm.Modify(ctx, &request); err != nil {
+	if err := uvm.modify(ctx, &request); err != nil {
 		return err
 	}
 
@@ -247,7 +247,7 @@ func (uvm *UtilityVM) addNIC(ctx context.Context, id guid.GUID, endpoint *hns.HN
 func (uvm *UtilityVM) removeNIC(ctx context.Context, id guid.GUID, endpoint *hns.HNSEndpoint) error {
 	request := hcsschema.ModifySettingRequest{
 		RequestType:  requesttype.Remove,
-		ResourcePath: path.Join("VirtualMachine/Devices/NetworkAdapters", id.String()),
+		ResourcePath: fmt.Sprintf(networkResourceFormat, id.String()),
 		Settings: hcsschema.NetworkAdapter{
 			EndpointId: endpoint.Id,
 			MacAddress: endpoint.MacAddress,
@@ -276,7 +276,7 @@ func (uvm *UtilityVM) removeNIC(ctx context.Context, id guid.GUID, endpoint *hns
 		}
 	}
 
-	if err := uvm.Modify(ctx, &request); err != nil {
+	if err := uvm.modify(ctx, &request); err != nil {
 		return err
 	}
 	return nil

@@ -1,64 +1,70 @@
-# github.com/Microsoft/go-winio v0.4.14
-github.com/Microsoft/go-winio/pkg/etwlogrus
-github.com/Microsoft/go-winio/vhd
-github.com/Microsoft/go-winio/pkg/guid
-github.com/Microsoft/go-winio/pkg/etw
+# github.com/Microsoft/go-winio v0.4.15-0.20190919025122-fc70bd9a86b5
 github.com/Microsoft/go-winio
-# github.com/Microsoft/hcsshim v0.8.7-0.20190916181005-bd9b25532450
-github.com/Microsoft/hcsshim/hcn
+github.com/Microsoft/go-winio/pkg/etw
+github.com/Microsoft/go-winio/pkg/etwlogrus
+github.com/Microsoft/go-winio/pkg/guid
+github.com/Microsoft/go-winio/pkg/process
+github.com/Microsoft/go-winio/vhd
+# github.com/Microsoft/hcsshim v0.8.8-0.20200225064221-b400e4ffeccc
 github.com/Microsoft/hcsshim
-github.com/Microsoft/hcsshim/pkg/go-runhcs
-github.com/Microsoft/hcsshim/test/functional/utilities
+github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options
+github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/stats
+github.com/Microsoft/hcsshim/hcn
 github.com/Microsoft/hcsshim/internal/cni
-github.com/Microsoft/hcsshim/internal/hcs
-github.com/Microsoft/hcsshim/internal/hcserror
-github.com/Microsoft/hcsshim/internal/interop
-github.com/Microsoft/hcsshim/internal/regstate
-github.com/Microsoft/hcsshim/internal/runhcs
-github.com/Microsoft/hcsshim/internal/hns
-github.com/Microsoft/hcsshim/internal/mergemaps
-github.com/Microsoft/hcsshim/internal/schema1
-github.com/Microsoft/hcsshim/internal/wclayer
-github.com/Microsoft/hcsshim/internal/lcow
-github.com/Microsoft/hcsshim/internal/uvm
-github.com/Microsoft/hcsshim/osversion
-github.com/Microsoft/hcsshim/internal/cow
-github.com/Microsoft/hcsshim/internal/log
-github.com/Microsoft/hcsshim/internal/logfields
-github.com/Microsoft/hcsshim/internal/oc
-github.com/Microsoft/hcsshim/internal/timeout
-github.com/Microsoft/hcsshim/internal/vmcompute
-github.com/Microsoft/hcsshim/internal/schema2
-github.com/Microsoft/hcsshim/internal/longpath
-github.com/Microsoft/hcsshim/internal/safefile
 github.com/Microsoft/hcsshim/internal/copyfile
-github.com/Microsoft/hcsshim/internal/hcsoci
+github.com/Microsoft/hcsshim/internal/cow
 github.com/Microsoft/hcsshim/internal/gcs
 github.com/Microsoft/hcsshim/internal/guestrequest
-github.com/Microsoft/hcsshim/internal/requesttype
-github.com/Microsoft/hcsshim/internal/schemaversion
-github.com/Microsoft/hcsshim/internal/uvmfolder
-github.com/Microsoft/hcsshim/internal/wcow
+github.com/Microsoft/hcsshim/internal/hcs
+github.com/Microsoft/hcsshim/internal/hcserror
+github.com/Microsoft/hcsshim/internal/hcsoci
+github.com/Microsoft/hcsshim/internal/hns
+github.com/Microsoft/hcsshim/internal/interop
+github.com/Microsoft/hcsshim/internal/lcow
+github.com/Microsoft/hcsshim/internal/log
+github.com/Microsoft/hcsshim/internal/logfields
+github.com/Microsoft/hcsshim/internal/longpath
+github.com/Microsoft/hcsshim/internal/mergemaps
+github.com/Microsoft/hcsshim/internal/oc
 github.com/Microsoft/hcsshim/internal/oci
 github.com/Microsoft/hcsshim/internal/ospath
-github.com/Microsoft/hcsshim/cmd/containerd-shim-runhcs-v1/options
+github.com/Microsoft/hcsshim/internal/regstate
+github.com/Microsoft/hcsshim/internal/requesttype
+github.com/Microsoft/hcsshim/internal/runhcs
+github.com/Microsoft/hcsshim/internal/safefile
+github.com/Microsoft/hcsshim/internal/schema1
+github.com/Microsoft/hcsshim/internal/schema2
+github.com/Microsoft/hcsshim/internal/schemaversion
+github.com/Microsoft/hcsshim/internal/timeout
+github.com/Microsoft/hcsshim/internal/uvm
+github.com/Microsoft/hcsshim/internal/uvmfolder
+github.com/Microsoft/hcsshim/internal/vmcompute
+github.com/Microsoft/hcsshim/internal/wclayer
+github.com/Microsoft/hcsshim/internal/wcow
+github.com/Microsoft/hcsshim/osversion
+github.com/Microsoft/hcsshim/pkg/go-runhcs
+github.com/Microsoft/hcsshim/test/functional/utilities
 # github.com/blang/semver v3.5.1+incompatible
 github.com/blang/semver
+# github.com/containerd/cgroups v0.0.0-20190919134610-bf292b21730f
+github.com/containerd/cgroups/stats/v1
 # github.com/containerd/console v0.0.0-20181022165439-0650fd9eeb50
 github.com/containerd/console
 # github.com/containerd/go-runc v0.0.0-20190226155025-7d11b49dc076
 github.com/containerd/go-runc
 # github.com/containernetworking/cni v0.0.0-20190403160241-0471e018e593
+github.com/containernetworking/cni/pkg/invoke
 github.com/containernetworking/cni/pkg/skel
 github.com/containernetworking/cni/pkg/types
 github.com/containernetworking/cni/pkg/types/020
-github.com/containernetworking/cni/pkg/version
-github.com/containernetworking/cni/pkg/invoke
 github.com/containernetworking/cni/pkg/types/current
+github.com/containernetworking/cni/pkg/version
 # github.com/gogo/protobuf v1.2.1
+github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
-github.com/gogo/protobuf/types
+github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/gogo/protobuf/sortkeys
+github.com/gogo/protobuf/types
 # github.com/hashicorp/errwrap v1.0.0
 github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.0.0
@@ -67,21 +73,21 @@ github.com/hashicorp/go-multierror
 github.com/hashicorp/golang-lru/simplelru
 # github.com/konsorten/go-windows-terminal-sequences v1.0.2
 github.com/konsorten/go-windows-terminal-sequences
-# github.com/opencontainers/runtime-spec v0.0.0-20190408193819-a1b50f621a48
+# github.com/opencontainers/runtime-spec v0.1.2-0.20190507144316-5b71a03e2700
 github.com/opencontainers/runtime-spec/specs-go
 # github.com/opencontainers/runtime-tools v0.0.0-20190313075039-7125f1d443b0
+github.com/opencontainers/runtime-tools/error
+github.com/opencontainers/runtime-tools/filepath
 github.com/opencontainers/runtime-tools/generate
 github.com/opencontainers/runtime-tools/generate/seccomp
-github.com/opencontainers/runtime-tools/validate
-github.com/opencontainers/runtime-tools/filepath
 github.com/opencontainers/runtime-tools/specerror
-github.com/opencontainers/runtime-tools/error
+github.com/opencontainers/runtime-tools/validate
 # github.com/opencontainers/selinux v1.2.1
-github.com/opencontainers/selinux/go-selinux/label
 github.com/opencontainers/selinux/go-selinux
+github.com/opencontainers/selinux/go-selinux/label
 # github.com/pkg/errors v0.8.1
 github.com/pkg/errors
-# github.com/sirupsen/logrus v1.4.1
+# github.com/sirupsen/logrus v1.4.2
 github.com/sirupsen/logrus
 # github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
 github.com/syndtr/gocapability/capability
@@ -92,14 +98,14 @@ github.com/xeipuuv/gojsonreference
 # github.com/xeipuuv/gojsonschema v1.1.0
 github.com/xeipuuv/gojsonschema
 # go.opencensus.io v0.22.0
-go.opencensus.io/trace
+go.opencensus.io
 go.opencensus.io/internal
+go.opencensus.io/trace
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/tracestate
-go.opencensus.io
-# golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6
+# golang.org/x/sync v0.0.0-20190423024810-112230192c58
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.0.0-20190507160741-ecd444e8653b
-golang.org/x/sys/windows
+# golang.org/x/sys v0.0.0-20190916202348-b4ddaad3f8a3
 golang.org/x/sys/unix
+golang.org/x/sys/windows
 golang.org/x/sys/windows/registry

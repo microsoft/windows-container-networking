@@ -66,7 +66,8 @@ func CreateWCOW(ctx context.Context, opts *OptionsWCOW) (_ *UtilityVM, err error
 		owner:               opts.Owner,
 		operatingSystem:     "windows",
 		scsiControllerCount: 1,
-		vsmbShares:          make(map[string]*vsmbShare),
+		vsmbDirShares:       make(map[string]*vsmbShare),
+		vsmbFileShares:      make(map[string]*vsmbShare),
 	}
 	defer func() {
 		if err != nil {
@@ -133,6 +134,9 @@ func CreateWCOW(ctx context.Context, opts *OptionsWCOW) (_ *UtilityVM, err error
 					// EnableHotHint is not compatible with physical.
 					EnableHotHint:        opts.AllowOvercommit,
 					EnableDeferredCommit: opts.EnableDeferredCommit,
+					LowMMIOGapInMB:       opts.LowMMIOGapInMB,
+					HighMMIOBaseInMB:     opts.HighMMIOBaseInMB,
+					HighMMIOGapInMB:      opts.HighMMIOGapInMB,
 				},
 				Processor: &hcsschema.Processor2{
 					Count:  uvm.processorCount,

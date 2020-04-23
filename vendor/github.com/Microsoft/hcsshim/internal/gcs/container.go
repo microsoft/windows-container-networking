@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/Microsoft/hcsshim/internal/cow"
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/oc"
 	"github.com/Microsoft/hcsshim/internal/schema1"
+	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 	"go.opencensus.io/trace"
 )
 
@@ -110,7 +112,7 @@ func (c *Container) Modify(ctx context.Context, config interface{}) (err error) 
 	return c.gc.brdg.RPC(ctx, rpcModifySettings, &req, &resp, false)
 }
 
-// Properties requests properties of the container.
+// Properties returns the requested container properties targeting a V1 schema container.
 func (c *Container) Properties(ctx context.Context, types ...schema1.PropertyType) (_ *schema1.ContainerProperties, err error) {
 	ctx, span := trace.StartSpan(ctx, "gcs::Container::Properties")
 	defer span.End()
@@ -127,6 +129,25 @@ func (c *Container) Properties(ctx context.Context, types ...schema1.PropertyTyp
 		return nil, err
 	}
 	return (*schema1.ContainerProperties)(&resp.Properties), nil
+}
+
+// PropertiesV2 returns the requested container properties targeting a V2 schema container.
+func (c *Container) PropertiesV2(ctx context.Context, types ...hcsschema.PropertyType) (_ *hcsschema.Properties, err error) {
+	ctx, span := trace.StartSpan(ctx, "gcs::Container::PropertiesV2")
+	defer span.End()
+	defer func() { oc.SetSpanStatus(span, err) }()
+	span.AddAttributes(trace.StringAttribute("cid", c.id))
+
+	req := containerGetPropertiesV2{
+		requestBase: makeRequest(ctx, c.id),
+		Query:       containerPropertiesQueryV2{PropertyTypes: types},
+	}
+	var resp containerGetPropertiesResponseV2
+	err = c.gc.brdg.RPC(ctx, rpcGetProperties, &req, &resp, true)
+	if err != nil {
+		return nil, err
+	}
+	return (*hcsschema.Properties)(&resp.Properties), nil
 }
 
 // Start starts the container.
@@ -167,6 +188,8 @@ func (c *Container) Shutdown(ctx context.Context) (err error) {
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(trace.StringAttribute("cid", c.id))
 
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	return c.shutdown(ctx, rpcShutdownGraceful)
 }
 
@@ -179,6 +202,8 @@ func (c *Container) Terminate(ctx context.Context) (err error) {
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(trace.StringAttribute("cid", c.id))
 
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	return c.shutdown(ctx, rpcShutdownForced)
 }
 

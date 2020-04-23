@@ -24,7 +24,6 @@ type Manager interface {
 	Initialize(config *common.PluginConfig) error
 	Uninitialize()
 	// Network
-	CreateNetwork(config *NetworkInfo) (*NetworkInfo, error)
 	DeleteNetwork(networkID string) error
 	GetNetwork(networkID string) (*NetworkInfo, error)
 	GetNetworkByName(networkName string) (*NetworkInfo, error)
@@ -53,21 +52,6 @@ func (nm *networkManager) Uninitialize() {
 //
 // NetworkManager API Network Methods
 //
-
-// CreateNetwork creates a new container network.
-func (nm *networkManager) CreateNetwork(config *NetworkInfo) (*NetworkInfo, error) {
-	nm.Lock()
-	defer nm.Unlock()
-
-	hcnNetworkConfig := config.GetHostComputeNetworkConfig()
-
-	hcnNetwork, err := hcnNetworkConfig.Create()
-	if err != nil {
-		return nil, err
-	}
-
-	return GetNetworkInfoFromHostComputeNetwork(hcnNetwork), err
-}
 
 // DeleteNetwork deletes an existing container network.
 func (nm *networkManager) DeleteNetwork(networkID string) error {
@@ -124,7 +108,9 @@ func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo,
 	epInfo.NetworkID = networkID
 	hcnEndpointConfig := epInfo.GetHostComputeEndpoint()
 	hcnEndpoint, err := hcnEndpointConfig.Create()
-	if err != nil {
+	if hcn.IsPortAlreadyExistsError(err) {
+		return nil, err
+	} else if err != nil {
 		return nil, fmt.Errorf("error creating endpoint %v : endpoint config %v", err, hcnEndpointConfig)
 	}
 

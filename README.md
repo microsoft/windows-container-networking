@@ -9,6 +9,13 @@ This repo contains plugins meant for testing/development of latest windows featu
 * `nat`
 * `sdnbridge`
 
+## Usage
+[Container networking on windows.](https://docs.microsoft.com/en-us/virtualization/windowscontainers/container-networking/architecture) Following windows networking definitions, this plugin works to create the endpoint from parameters defined in the cni.conf, and a attach it to the namespace referred to by CNI_NETNS. There are two assumptions the plugins makes to perform this:
+1. The user has already created a network which endpoints can be created under.
+2. The namespace has been already been created.
+For 2, the container is typically created with a reference to the namespace and it is expected that the container runtime performs this creation step. These plugins strictly work within the V2 windows container networking flow. Endpoint Policies should be in the [V2 schema format](https://docs.microsoft.com/en-us/windows-server/networking/technologies/hcn/hcn-top).
+
+
 ## Releases
 Currently you must build the binaries yourself (see below)
 
@@ -37,6 +44,12 @@ Currently there are two groups of end-to-end tests shared by all the plugins
 
 * Properties Verification - tests an add command and verifies that the resulting state is as expected. I.e. we attach an endpoint that endpoint has policy x,y,z etc. 
 * Connectivity Testing -  creates a container and makes a CNI call for it and verifies that the container has connectivity for pod-to-pod, host-to-pod, pod-to-host, and pod-to-internet
+
+## Errors
+66 - General failure in the plugin: indicates an error occured in the plugin with no extra information
+71 - Port Already Exists: indicates the port specified in a policy, (usually port mapping), is in use, likely by another endpoint. To fix this error, free the port desired or change the port you wish to use.
+81 - Network Not Found: The network specified in the CNI config was not found. The expectation is that the network has been created before invoking the plugin to create an endpoint for a container. Create the network to use the plugin.
+
 
 ## Contributing
 

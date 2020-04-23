@@ -12,7 +12,6 @@ import (
 	"github.com/Microsoft/windows-container-networking/network"
 	"github.com/sirupsen/logrus"
 	"os"
-
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/containernetworking/cni/pkg/invoke"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
@@ -94,6 +93,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	logrus.Debugf("[cni-net] Processing ADD command with args {ContainerID:%v Netns:%v IfName:%v Args:%v Path:%v}.",
 		args.ContainerID, args.Netns, args.IfName, args.Args, args.Path)
 
+	defer func() {resultError = cni.ResolveError(resultError)}()
 	podConfig, err := cni.ParseCniArgs(args.Args)
 	k8sNamespace := ""
 	if err == nil {
@@ -101,10 +101,10 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	}
 
 	// Parse network configuration from stdin.
-	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
+	cniConfig, resultError := cni.ParseNetworkConfig(args.StdinData)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to parse network configuration, err:%v.", err)
-		return err
+		return
 	}
 
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
@@ -112,26 +112,26 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	// Convert cniConfig to NetworkInfo
 	// We don't set namespace, setting namespace is not valid for EP creation
 	networkInfo := cniConfig.GetNetworkInfo(k8sNamespace)
-	epInfo, err := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, "")
-
-	if err != nil {
-		return err
+	epInfo, resultError  := cniConfig.GetEndpointInfo(networkInfo, args.ContainerID, "")
+	if resultError != nil {
+		return
 	}
 
 	// Check for missing namespace
 	if args.Netns == "" {
 		logrus.Errorf("[cni-net] Missing Namespace, cannot add, endpoint : [%v].", epInfo)
-		return errors.New("cannot create endpoint without a namespace")
+		resultError = errors.New("cannot create endpoint without a namespace")
+		return
 	}
 
-	nwConfig, err := getOrCreateNetwork(plugin, networkInfo, cniConfig)
-	if err != nil {
-		return err
+	nwConfig, resultError := getNetwork(plugin, networkInfo, cniConfig)
+	if resultError != nil {
+		return
 	}
 
 	hnsEndpoint, err := plugin.nm.GetEndpointByName(epInfo.Name)
 	if hnsEndpoint != nil {
-		logrus.Infof("[cni-net] Endpoint %+v already exists for network %v.", hnsEndpoint, nwConfig.ID)
+		logrus.Infof("[cni-net] Endpoint %v already exists for network %v.", hnsEndpoint, nwConfig.ID)
 		// Endpoint exists
 		// Validate for duplication
 		if hnsEndpoint.NetworkID == nwConfig.ID {
@@ -142,7 +142,8 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 			res := cni.GetCurrResult(nwConfig, hnsEndpoint, args.IfName)
 			result, err := res.GetAsVersion(cniConfig.CniVersion)
 			if err != nil {
-				return err
+				resultError = err
+				return
 			}
 
 			result.Print()
@@ -154,10 +155,10 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 
 	// If Ipam was provided, allocate a pool and obtain V4 address
 	if cniConfig.Ipam.Type != "" {
-		err = allocateIpam(networkInfo, epInfo, cniConfig, cniConfig.OptionalFlags.ForceBridgeGateway)
-		if err != nil {
-			// Error was logged by allocateIpam.
-			return err
+		resultError = allocateIpam(networkInfo, epInfo, cniConfig, cniConfig.OptionalFlags.ForceBridgeGateway)
+		if resultError != nil {
+			// ResultError was logged by allocateIpam.
+			return
 		}
 		defer func() {
 			if resultError != nil {
@@ -166,7 +167,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 				err := deallocateIpam(cniConfig)
 				os.Setenv("CNI_COMMAND", "ADD")
 				if err != nil {
-					logrus.Debugf("[cni-net] failed during ADD command for clean-up delegate delete call, %v", err)
+					logrus.Debugf("[cni-net] failed during ADD command for clean-up delegate delete call, %v", resultError)
 				}
 			}
 		}()
@@ -175,17 +176,17 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	// Apply the Network Policy for Endpoint
 	epInfo.Policies = append(epInfo.Policies, networkInfo.Policies...)
 
-	epInfo, err = plugin.nm.CreateEndpoint(nwConfig.ID, epInfo, args.Netns)
-	if err != nil {
-		logrus.Errorf("[cni-net] Failed to create endpoint, error : %v.", err)
-		return err
+	epInfo, resultError = plugin.nm.CreateEndpoint(nwConfig.ID, epInfo, args.Netns)
+	if resultError != nil {
+		logrus.Errorf("[cni-net] Failed to create endpoint, resultError : %v.", resultError)
+		return 
 	}
 
 	// Convert result to the requested CNI version.
 	res := cni.GetCurrResult(nwConfig, epInfo, args.IfName)
-	result, err := res.GetAsVersion(cniConfig.CniVersion)
-	if err != nil {
-		return err
+	result, resultError := res.GetAsVersion(cniConfig.CniVersion)
+	if resultError != nil {
+		return
 	}
 
 	//	result := cni.GetResult020(nwConfig, epInfo)
@@ -248,23 +249,15 @@ func deallocateIpam(cniConfig *cni.NetworkConfig) error {
 // getOrCreateNetwork
 // TODO: Require network to be created beforehand and make it an error of the network is not found.
 // Once that is done, remove this function.
-func getOrCreateNetwork(
+func getNetwork(
 	plugin *netPlugin,
 	networkInfo *network.NetworkInfo,
 	cniConfig *cni.NetworkConfig) (*network.NetworkInfo, error) {
 	// Check whether the network already exists.
 	nwConfig, err := plugin.nm.GetNetworkByName(cniConfig.Name)
 	if err != nil {
-		// Network does not exist.
-		logrus.Infof("[cni-net] Creating network.")
-
-		nwConfig, err = plugin.nm.CreateNetwork(networkInfo)
-		if err != nil {
-			logrus.Errorf("[cni-net] Failed to create network, err:%v.", err)
-			return nil, err
-		}
-
-		logrus.Debugf("[cni-net] Created network %v with subnet %v.", nwConfig.ID, cniConfig.Ipam.Subnet)
+		logrus.Errorf("[cni-net] Failed to find network [%v], err:%v.",  cniConfig.Name, err)
+		return nil, err
 	} else {
 		// Network already exists.
 		logrus.Debugf("[cni-net] Found network %v with subnet %v.", nwConfig.ID, nwConfig.Subnets)

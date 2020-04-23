@@ -49,6 +49,7 @@ const (
 	rpcModifySettings
 	rpcNegotiateProtocol
 	rpcDumpStacks
+	rpcDeleteContainerState
 	rpcLifecycleNotification
 )
 
@@ -107,6 +108,8 @@ func (typ msgType) String() string {
 		s += "NegotiateProtocol"
 	case rpcDumpStacks:
 		s += "DumpStacks"
+	case rpcDeleteContainerState:
+		s += "DeleteContainerState"
 	case rpcLifecycleNotification:
 		s += "LifecycleNotification"
 	default:
@@ -196,6 +199,10 @@ type dumpStacksResponse struct {
 	GuestStacks string
 }
 
+type deleteContainerStateRequest struct {
+	requestBase
+}
+
 type containerCreate struct {
 	requestBase
 	ContainerConfig anyInString
@@ -265,9 +272,24 @@ func (q *containerPropertiesQuery) UnmarshalText(b []byte) error {
 	return json.Unmarshal(b, (*schema1.PropertyQuery)(q))
 }
 
+type containerPropertiesQueryV2 hcsschema.PropertyQuery
+
+func (q *containerPropertiesQueryV2) MarshalText() ([]byte, error) {
+	return json.Marshal((*hcsschema.PropertyQuery)(q))
+}
+
+func (q *containerPropertiesQueryV2) UnmarshalText(b []byte) error {
+	return json.Unmarshal(b, (*hcsschema.PropertyQuery)(q))
+}
+
 type containerGetProperties struct {
 	requestBase
 	Query containerPropertiesQuery
+}
+
+type containerGetPropertiesV2 struct {
+	requestBase
+	Query containerPropertiesQueryV2
 }
 
 type containerModifySettings struct {
@@ -309,7 +331,22 @@ func (p *containerProperties) UnmarshalText(b []byte) error {
 	return json.Unmarshal(b, (*schema1.ContainerProperties)(p))
 }
 
+type containerPropertiesV2 hcsschema.Properties
+
+func (p *containerPropertiesV2) MarshalText() ([]byte, error) {
+	return json.Marshal((*hcsschema.Properties)(p))
+}
+
+func (p *containerPropertiesV2) UnmarshalText(b []byte) error {
+	return json.Unmarshal(b, (*hcsschema.Properties)(p))
+}
+
 type containerGetPropertiesResponse struct {
 	responseBase
 	Properties containerProperties
+}
+
+type containerGetPropertiesResponseV2 struct {
+	responseBase
+	Properties containerPropertiesV2
 }
