@@ -51,10 +51,10 @@ github.com/containerd/go-runc
 # github.com/containernetworking/cni v0.0.0-20190403160241-0471e018e593
 github.com/containernetworking/cni/pkg/skel
 github.com/containernetworking/cni/pkg/types
-github.com/containernetworking/cni/pkg/types/020
+github.com/containernetworking/cni/pkg/types/current
 github.com/containernetworking/cni/pkg/version
 github.com/containernetworking/cni/pkg/invoke
-github.com/containernetworking/cni/pkg/types/current
+github.com/containernetworking/cni/pkg/types/020
 # github.com/gogo/protobuf v1.2.1
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/types
