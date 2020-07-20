@@ -12,8 +12,6 @@ require (
 	github.com/containernetworking/cni v0.0.0-20190403160241-0471e018e593
 	github.com/hashicorp/go-multierror v1.0.0 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
-	github.com/linuxkit/virtsock v0.0.0-20180830132707-8e79449dea07 // indirect
-	github.com/microsoft/hcsshim v0.8.6 // indirect
 	github.com/opencontainers/runtime-tools v0.0.0-20190313075039-7125f1d443b0
 	github.com/opencontainers/selinux v1.2.1 // indirect
 	github.com/pkg/errors v0.8.1
