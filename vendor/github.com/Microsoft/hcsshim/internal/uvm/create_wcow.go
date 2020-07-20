@@ -66,7 +66,8 @@ func CreateWCOW(ctx context.Context, opts *OptionsWCOW) (_ *UtilityVM, err error
 		owner:               opts.Owner,
 		operatingSystem:     "windows",
 		scsiControllerCount: 1,
-		vsmbShares:          make(map[string]*vsmbShare),
+		vsmbDirShares:       make(map[string]*VSMBShare),
+		vsmbFileShares:      make(map[string]*VSMBShare),
 	}
 	defer func() {
 		if err != nil {
@@ -133,6 +134,9 @@ func CreateWCOW(ctx context.Context, opts *OptionsWCOW) (_ *UtilityVM, err error
 					// EnableHotHint is not compatible with physical.
 					EnableHotHint:        opts.AllowOvercommit,
 					EnableDeferredCommit: opts.EnableDeferredCommit,
+					LowMMIOGapInMB:       opts.LowMMIOGapInMB,
+					HighMMIOBaseInMB:     opts.HighMMIOBaseInMB,
+					HighMMIOGapInMB:      opts.HighMMIOGapInMB,
 				},
 				Processor: &hcsschema.Processor2{
 					Count:  uvm.processorCount,
@@ -190,7 +194,11 @@ func CreateWCOW(ctx context.Context, opts *OptionsWCOW) (_ *UtilityVM, err error
 		}
 	}
 
-	uvm.scsiLocations[0][0].hostPath = doc.VirtualMachine.Devices.Scsi["0"].Attachments["0"].Path
+	uvm.scsiLocations[0][0] = &SCSIMount{
+		vm:       uvm,
+		HostPath: doc.VirtualMachine.Devices.Scsi["0"].Attachments["0"].Path,
+		refCount: 1,
+	}
 
 	fullDoc, err := mergemaps.MergeJSON(doc, ([]byte)(opts.AdditionHCSDocumentJSON))
 	if err != nil {

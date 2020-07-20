@@ -16,6 +16,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/schemaversion"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
+	"golang.org/x/sys/windows"
 )
 
 // Options are the set of options passed to Create() to create a utility vm.
@@ -27,6 +28,10 @@ type Options struct {
 	// MemorySizeInMB sets the UVM memory. If `0` will default to platform
 	// default.
 	MemorySizeInMB int32
+
+	LowMMIOGapInMB   uint64
+	HighMMIOBaseInMB uint64
+	HighMMIOGapInMB  uint64
 
 	// Memory for UVM. Defaults to true. For physical backed memory, set to
 	// false.
@@ -117,7 +122,7 @@ func (uvm *UtilityVM) create(ctx context.Context, doc interface{}) error {
 
 	log.G(ctx).WithFields(logrus.Fields{
 		logfields.UVMID: uvm.id,
-		"runtime-id":    uvm.runtimeID,
+		"runtime-id":    uvm.runtimeID.String(),
 	}).Debug("created utility VM")
 	return nil
 }
@@ -128,6 +133,8 @@ func (uvm *UtilityVM) Close() (err error) {
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(trace.StringAttribute(logfields.UVMID, uvm.id))
+
+	windows.Close(uvm.vmmemProcess)
 
 	if uvm.hcsSystem != nil {
 		uvm.hcsSystem.Terminate(ctx)

@@ -3,15 +3,18 @@ package uvm
 import (
 	"context"
 	"errors"
-	"path"
+	"fmt"
+	"os"
 
 	"github.com/Microsoft/go-winio/pkg/guid"
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/Microsoft/hcsshim/internal/guestrequest"
 	"github.com/Microsoft/hcsshim/internal/hns"
+	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/requesttype"
 	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 	"github.com/Microsoft/hcsshim/osversion"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -22,6 +25,36 @@ var (
 	// network namespace by this id.
 	ErrNetNSNotFound = errors.New("network namespace not found")
 )
+
+// NetworkEndpoints is a struct containing all of the endpoint IDs of a network
+// namespace.
+type NetworkEndpoints struct {
+	EndpointIDs []string
+	// ID of the namespace the endpoints belong to
+	Namespace string
+}
+
+// Release releases the resources for all of the network endpoints in a namespace.
+func (endpoints *NetworkEndpoints) Release(ctx context.Context) error {
+	for _, endpoint := range endpoints.EndpointIDs {
+		err := hns.RemoveNamespaceEndpoint(endpoints.Namespace, endpoint)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+			log.G(ctx).WithFields(logrus.Fields{
+				"endpointID": endpoint,
+				"netID":      endpoints.Namespace,
+			}).Warn("removing endpoint from namespace: does not exist")
+		}
+	}
+	endpoints.EndpointIDs = nil
+	err := hns.RemoveNamespace(endpoints.Namespace)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
 
 // AddNetNS adds network namespace inside the guest.
 //
@@ -48,7 +81,7 @@ func (uvm *UtilityVM) AddNetNS(ctx context.Context, id string) error {
 					Settings:     hcnNamespace,
 				},
 			}
-			if err := uvm.Modify(ctx, &guestNamespace); err != nil {
+			if err := uvm.modify(ctx, &guestNamespace); err != nil {
 				return err
 			}
 		}
@@ -123,7 +156,7 @@ func (uvm *UtilityVM) RemoveNetNS(ctx context.Context, id string) error {
 						Settings:     hcnNamespace,
 					},
 				}
-				if err := uvm.Modify(ctx, &guestNamespace); err != nil {
+				if err := uvm.modify(ctx, &guestNamespace); err != nil {
 					return err
 				}
 			}
@@ -191,7 +224,7 @@ func (uvm *UtilityVM) addNIC(ctx context.Context, id guid.GUID, endpoint *hns.HN
 					endpoint),
 			},
 		}
-		if err := uvm.Modify(ctx, &preAddRequest); err != nil {
+		if err := uvm.modify(ctx, &preAddRequest); err != nil {
 			return err
 		}
 	}
@@ -199,7 +232,7 @@ func (uvm *UtilityVM) addNIC(ctx context.Context, id guid.GUID, endpoint *hns.HN
 	// Then the Add itself
 	request := hcsschema.ModifySettingRequest{
 		RequestType:  requesttype.Add,
-		ResourcePath: path.Join("VirtualMachine/Devices/NetworkAdapters", id.String()),
+		ResourcePath: fmt.Sprintf(networkResourceFormat, id.String()),
 		Settings: hcsschema.NetworkAdapter{
 			EndpointId: endpoint.Id,
 			MacAddress: endpoint.MacAddress,
@@ -237,7 +270,7 @@ func (uvm *UtilityVM) addNIC(ctx context.Context, id guid.GUID, endpoint *hns.HN
 		}
 	}
 
-	if err := uvm.Modify(ctx, &request); err != nil {
+	if err := uvm.modify(ctx, &request); err != nil {
 		return err
 	}
 
@@ -247,7 +280,7 @@ func (uvm *UtilityVM) addNIC(ctx context.Context, id guid.GUID, endpoint *hns.HN
 func (uvm *UtilityVM) removeNIC(ctx context.Context, id guid.GUID, endpoint *hns.HNSEndpoint) error {
 	request := hcsschema.ModifySettingRequest{
 		RequestType:  requesttype.Remove,
-		ResourcePath: path.Join("VirtualMachine/Devices/NetworkAdapters", id.String()),
+		ResourcePath: fmt.Sprintf(networkResourceFormat, id.String()),
 		Settings: hcsschema.NetworkAdapter{
 			EndpointId: endpoint.Id,
 			MacAddress: endpoint.MacAddress,
@@ -276,7 +309,7 @@ func (uvm *UtilityVM) removeNIC(ctx context.Context, id guid.GUID, endpoint *hns
 		}
 	}
 
-	if err := uvm.Modify(ctx, &request); err != nil {
+	if err := uvm.modify(ctx, &request); err != nil {
 		return err
 	}
 	return nil
