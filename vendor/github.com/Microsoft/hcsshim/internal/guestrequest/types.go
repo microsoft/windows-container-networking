@@ -25,7 +25,7 @@ type CombinedLayers struct {
 
 // SCSI. Scratch space for remote file-system commands, or R/W layer for containers
 type LCOWMappedVirtualDisk struct {
-	MountPath  string `json:"MountPath,omitempty"` // /tmp/scratch for an LCOW utility VM being used as a service VM
+	MountPath  string `json:"MountPath,omitempty"`
 	Lun        uint8  `json:"Lun,omitempty"`
 	Controller uint8  `json:"Controller,omitempty"`
 	ReadOnly   bool   `json:"ReadOnly,omitempty"`
@@ -46,7 +46,11 @@ type LCOWMappedDirectory struct {
 // Read-only layers over VPMem
 type LCOWMappedVPMemDevice struct {
 	DeviceNumber uint32 `json:"DeviceNumber,omitempty"`
-	MountPath    string `json:"MountPath,omitempty"` // /tmp/pN
+	MountPath    string `json:"MountPath,omitempty"`
+}
+
+type LCOWMappedVPCIDevice struct {
+	VMBusGUID string `json:"VMBusGUID,omitempty"`
 }
 
 type LCOWNetworkAdapter struct {
@@ -72,6 +76,7 @@ const (
 	ResourceTypeNetworkNamespace  ResourceType = "NetworkNamespace"
 	ResourceTypeCombinedLayers    ResourceType = "CombinedLayers"
 	ResourceTypeVPMemDevice       ResourceType = "VPMemDevice"
+	ResourceTypeVPCIDevice        ResourceType = "VPCIDevice"
 )
 
 // GuestRequest is for modify commands passed to the guest.

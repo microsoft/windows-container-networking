@@ -11,26 +11,26 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Microsoft/hcsshim/internal/guestrequest"
 	"github.com/Microsoft/hcsshim/internal/log"
 	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 	"github.com/Microsoft/hcsshim/internal/schemaversion"
+	"github.com/Microsoft/hcsshim/internal/uvm"
 	"github.com/Microsoft/hcsshim/internal/wclayer"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, resources *Resources) error {
+const wcowGlobalMountPrefix = "C:\\mounts\\m%d"
+
+func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, r *Resources) error {
 	if coi.Spec == nil || coi.Spec.Windows == nil || coi.Spec.Windows.LayerFolders == nil {
 		return fmt.Errorf("field 'Spec.Windows.Layerfolders' is not populated")
 	}
 
 	scratchFolder := coi.Spec.Windows.LayerFolders[len(coi.Spec.Windows.LayerFolders)-1]
-	log.G(ctx).WithField("scratchFolder", scratchFolder).Debug("hcsshim::allocateWindowsResources scratch folder")
 
 	// TODO: Remove this code for auto-creation. Make the caller responsible.
 	// Create the directory for the RW scratch layer if it doesn't exist
 	if _, err := os.Stat(scratchFolder); os.IsNotExist(err) {
-		log.G(ctx).WithField("scratchFolder", scratchFolder).Debug("hcsshim::allocateWindowsResources container scratch folder does not exist so creating")
 		if err := os.MkdirAll(scratchFolder, 0777); err != nil {
 			return fmt.Errorf("failed to auto-create container scratch folder %s: %s", scratchFolder, err)
 		}
@@ -39,8 +39,7 @@ func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, r
 	// Create sandbox.vhdx if it doesn't exist in the scratch folder. It's called sandbox.vhdx
 	// rather than scratch.vhdx as in the v1 schema, it's hard-coded in HCS.
 	if _, err := os.Stat(filepath.Join(scratchFolder, "sandbox.vhdx")); os.IsNotExist(err) {
-		log.G(ctx).WithField("scratchFolder", scratchFolder).Debug("hcsshim::allocateWindowsResources container sandbox.vhdx does not exist so creating")
-		if err := wclayer.CreateScratchLayer(scratchFolder, coi.Spec.Windows.LayerFolders[:len(coi.Spec.Windows.LayerFolders)-1]); err != nil {
+		if err := wclayer.CreateScratchLayer(ctx, scratchFolder, coi.Spec.Windows.LayerFolders[:len(coi.Spec.Windows.LayerFolders)-1]); err != nil {
 			return fmt.Errorf("failed to CreateSandboxLayer %s", err)
 		}
 	}
@@ -51,16 +50,21 @@ func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, r
 
 	if coi.Spec.Root.Path == "" && (coi.HostingSystem != nil || coi.Spec.Windows.HyperV == nil) {
 		log.G(ctx).Debug("hcsshim::allocateWindowsResources mounting storage")
-		mcl, err := MountContainerLayers(ctx, coi.Spec.Windows.LayerFolders, resources.containerRootInUVM, coi.HostingSystem)
+		containerRootPath, err := MountContainerLayers(ctx, coi.Spec.Windows.LayerFolders, r.containerRootInUVM, coi.HostingSystem)
 		if err != nil {
 			return fmt.Errorf("failed to mount container storage: %s", err)
 		}
 		if coi.HostingSystem == nil {
-			coi.Spec.Root.Path = mcl.(string) // Argon v1 or v2
+			coi.Spec.Root.Path = containerRootPath // Argon v1 or v2
 		} else {
-			coi.Spec.Root.Path = mcl.(guestrequest.CombinedLayers).ContainerRootPath // v2 Xenon WCOW
+			coi.Spec.Root.Path = containerRootPath // v2 Xenon WCOW
 		}
-		resources.layers = coi.Spec.Windows.LayerFolders
+		layers := &ImageLayers{
+			vm:                 coi.HostingSystem,
+			containerRootInUVM: r.containerRootInUVM,
+			layers:             coi.Spec.Windows.LayerFolders,
+		}
+		r.layers = layers
 	}
 
 	// Validate each of the mounts. If this is a V2 Xenon, we have to add them as
@@ -80,8 +84,7 @@ func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, r
 		}
 
 		if coi.HostingSystem != nil && schemaversion.IsV21(coi.actualSchemaVersion) {
-			uvmPath := fmt.Sprintf("C:\\%s\\%d", coi.actualID, i)
-
+			uvmPath := fmt.Sprintf(wcowGlobalMountPrefix, coi.HostingSystem.UVMMountCounter())
 			readOnly := false
 			for _, o := range mount.Options {
 				if strings.ToLower(o) == "ro" {
@@ -92,36 +95,45 @@ func allocateWindowsResources(ctx context.Context, coi *createOptionsInternal, r
 			l := log.G(ctx).WithField("mount", fmt.Sprintf("%+v", mount))
 			if mount.Type == "physical-disk" {
 				l.Debug("hcsshim::allocateWindowsResources Hot-adding SCSI physical disk for OCI mount")
-				_, _, err := coi.HostingSystem.AddSCSIPhysicalDisk(ctx, mount.Source, uvmPath, readOnly)
+				scsiMount, err := coi.HostingSystem.AddSCSIPhysicalDisk(ctx, mount.Source, uvmPath, readOnly)
 				if err != nil {
 					return fmt.Errorf("adding SCSI physical disk mount %+v: %s", mount, err)
 				}
 				coi.Spec.Mounts[i].Type = ""
-				resources.scsiMounts = append(resources.scsiMounts, scsiMount{path: mount.Source})
+				r.resources = append(r.resources, scsiMount)
 			} else if mount.Type == "virtual-disk" || mount.Type == "automanage-virtual-disk" {
 				l.Debug("hcsshim::allocateWindowsResources Hot-adding SCSI virtual disk for OCI mount")
-				_, _, err := coi.HostingSystem.AddSCSI(ctx, mount.Source, uvmPath, readOnly)
+				scsiMount, err := coi.HostingSystem.AddSCSI(ctx, mount.Source, uvmPath, readOnly, uvm.VMAccessTypeIndividual)
 				if err != nil {
 					return fmt.Errorf("adding SCSI virtual disk mount %+v: %s", mount, err)
 				}
 				coi.Spec.Mounts[i].Type = ""
-				resources.scsiMounts = append(resources.scsiMounts, scsiMount{path: mount.Source, autoManage: mount.Type == "automanage-virtual-disk"})
+				if mount.Type == "automanage-virtual-disk" {
+					r.resources = append(r.resources, &AutoManagedVHD{hostPath: scsiMount.HostPath})
+				}
+				r.resources = append(r.resources, scsiMount)
 			} else {
-				l.Debug("hcsshim::allocateWindowsResources Hot-adding VSMB share for OCI mount")
-				options := &hcsschema.VirtualSmbShareOptions{}
-				if readOnly {
-					options.ReadOnly = true
-					options.CacheIo = true
-					options.ShareRead = true
-					options.ForceLevelIIOplocks = true
-					break
+				if uvm.IsPipe(mount.Source) {
+					pipe, err := coi.HostingSystem.AddPipe(ctx, mount.Source)
+					if err != nil {
+						return fmt.Errorf("failed to add named pipe to UVM: %s", err)
+					}
+					r.resources = append(r.resources, pipe)
+				} else {
+					l.Debug("hcsshim::allocateWindowsResources Hot-adding VSMB share for OCI mount")
+					options := &hcsschema.VirtualSmbShareOptions{}
+					if readOnly {
+						options.ReadOnly = true
+						options.CacheIo = true
+						options.ShareRead = true
+						options.ForceLevelIIOplocks = true
+					}
+					share, err := coi.HostingSystem.AddVSMB(ctx, mount.Source, "", options)
+					if err != nil {
+						return fmt.Errorf("failed to add VSMB share to utility VM for mount %+v: %s", mount, err)
+					}
+					r.resources = append(r.resources, share)
 				}
-
-				err := coi.HostingSystem.AddVSMB(ctx, mount.Source, "", options)
-				if err != nil {
-					return fmt.Errorf("failed to add VSMB share to utility VM for mount %+v: %s", mount, err)
-				}
-				resources.vsmbMounts = append(resources.vsmbMounts, mount.Source)
 			}
 		}
 	}
