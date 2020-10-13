@@ -56,7 +56,7 @@ func GetPortEnumValue(protocol string) (uint32, error) {
 }
 
 // GetPortMappingPolicy creates an HCN PortMappingPolicy and stores it in CNI Policy.
-func GetPortMappingPolicy(externalPort int, internalPort int, protocol string, flags uint32) (Policy, error) {
+func GetPortMappingPolicy(externalPort int, internalPort int, protocol string, hostIp string, flags uint32) (Policy, error) {
 
 	// protocol can be passed either as a number or a name
 	protocolInt, err := GetPortEnumValue(protocol)
@@ -68,6 +68,7 @@ func GetPortMappingPolicy(externalPort int, internalPort int, protocol string, f
 		ExternalPort: uint16(externalPort),
 		InternalPort: uint16(internalPort),
 		Protocol:     protocolInt,
+		VIP:          hostIp,
 		Flags:        hcn.NatFlags(flags),
 	}
 	rawPolicy, _ := json.Marshal(portMappingPolicy)
