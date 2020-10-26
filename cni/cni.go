@@ -326,7 +326,7 @@ func (config *NetworkConfig) GetEndpointInfo(
 	}
 	var aclPriority uint16 = 1000
 	for _, mapping := range runtimeConf.PortMappings {
-		policy, err := network.GetPortMappingPolicy(mapping.HostPort, mapping.ContainerPort, mapping.Protocol, flags)
+		policy, err := network.GetPortMappingPolicy(mapping.HostPort, mapping.ContainerPort, mapping.Protocol, mapping.HostIp, flags)
 		if err != nil {
 			return nil, fmt.Errorf("failed during GetEndpointInfo from netconf: %v", err)
 		}
