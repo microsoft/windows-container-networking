@@ -90,8 +90,10 @@ func (info *NetworkInfo) GetHostComputeNetworkConfig() *hcn.HostComputeNetwork {
 // GetNetworkInfoFromHostComputeNetwork converts HCN Network to NetworkInfo
 func GetNetworkInfoFromHostComputeNetwork(hcnNetwork *hcn.HostComputeNetwork) *NetworkInfo {
 	var subnets []SubnetInfo
-	for _, subnet := range hcnNetwork.Ipams[0].Subnets {
-		subnets = append(subnets, GetSubnetInfoFromHostComputeSubnet(&subnet))
+	if len(hcnNetwork.Ipams) > 0 {
+		for _, subnet := range hcnNetwork.Ipams[0].Subnets {
+			subnets = append(subnets, GetSubnetInfoFromHostComputeSubnet(&subnet))
+		}
 	}
 
 	return &NetworkInfo{

@@ -377,7 +377,10 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 
 // GetIP returns the IP for the corresponding endpoint
 func GetIP(network *network.NetworkInfo, endpoint *network.EndpointInfo) IP {
-	address := network.Subnets[0].AddressPrefix
+	address := net.IPNet{}
+	if len(network.Subnets) > 0 {
+		address = network.Subnets[0].AddressPrefix
+	}
 	address.IP = endpoint.IPAddress
 	return IP{
 		Version:        "4",
