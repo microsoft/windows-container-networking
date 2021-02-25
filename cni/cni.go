@@ -108,6 +108,7 @@ type OptionalFlags struct {
 	AllowAclPortMapping   bool `json:"allowAclPortMapping"`
 	ForceBridgeGateway    bool `json:"forceBridgeGateway"` // Intended to be temporary workaround
 	EnableDualStack       bool `json:"enableDualStack"`
+	LoopbackDSR           bool `json:"loopbackDSR"`
 }
 
 func (r *Result) Print() {
@@ -192,7 +193,13 @@ func (config *NetworkConfig) Serialize() []byte {
 }
 
 // GetNetworkInfo from the NetworkConfig
-func (config *NetworkConfig) GetNetworkInfo(podNamespace string) *network.NetworkInfo {
+func (config *NetworkConfig) GetNetworkInfo(podNamespace string) (ninfo *network.NetworkInfo, err error) {
+	if config.OptionalFlags.LoopbackDSR {
+		if err := hcn.DSRSupported(); err != nil {
+			logrus.Errorf("[cni-net] Failed to enable loopbackDSR on unsupported HCN version, err:%v.", err)
+			return nil, err
+		}
+	}
 	var subnets []network.SubnetInfo
 	// Note the code below is looking inside the ipam specific configuration.
 	if config.Ipam.Subnet != "" {
@@ -234,7 +241,7 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) *network.Networ
 		dnsSettings.Options = config.RuntimeConfig.DNS.Options
 	}
 
-	ninfo := &network.NetworkInfo{
+	ninfo = &network.NetworkInfo{
 		ID:            config.Name,
 		Name:          config.Name,
 		Type:          network.NetworkType(config.Name),
@@ -251,7 +258,7 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) *network.Networ
 		}
 	}
 
-	return ninfo
+	return ninfo, err
 }
 
 // getInACLRule generates an In ACLs for mapped ports
@@ -364,14 +371,14 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 
 		var ip = GetIP(network, endpoint)
 		ip.InterfaceIndex = 0
-			
+
 		cIP := cniTypesCurr.IPConfig{
-				Version: ip.Version,
-				Address: net.IPNet{
-					IP:		ip.Address.IP,
-					Mask:	ip.Address.Mask},
-				Gateway: ip.Gateway,
-				Interface: &ip.InterfaceIndex,
+			Version: ip.Version,
+			Address: net.IPNet{
+				IP:   ip.Address.IP,
+				Mask: ip.Address.Mask},
+			Gateway:   ip.Gateway,
+			Interface: &ip.InterfaceIndex,
 		}
 
 		result.IPs = append(result.IPs, &cIP)
@@ -383,29 +390,29 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 		ip4.InterfaceIndex = 0
 
 		cIP4 := cniTypesCurr.IPConfig{
-				Version: ip4.Version,
-				Address: net.IPNet{
-					IP:		ip4.Address.IP,
-					Mask:	ip4.Address.Mask},
-				Gateway: ip4.Gateway,
-				Interface: &ip4.InterfaceIndex,
+			Version: ip4.Version,
+			Address: net.IPNet{
+				IP:   ip4.Address.IP,
+				Mask: ip4.Address.Mask},
+			Gateway:   ip4.Gateway,
+			Interface: &ip4.InterfaceIndex,
 		}
-	
+
 		result.IPs = append(result.IPs, &cIP4)
 
-		if ip6  != nil {
+		if ip6 != nil {
 
 			ip6.InterfaceIndex = 0
 
 			cIP6 := cniTypesCurr.IPConfig{
-					Version: ip6.Version,
-					Address: net.IPNet{
-						IP:		ip6.Address.IP,
-						Mask:	ip6.Address.Mask},
-					Gateway:	ip6.Gateway,
-					Interface: &ip6.InterfaceIndex,
+				Version: ip6.Version,
+				Address: net.IPNet{
+					IP:   ip6.Address.IP,
+					Mask: ip6.Address.Mask},
+				Gateway:   ip6.Gateway,
+				Interface: &ip6.InterfaceIndex,
 			}
-	
+
 			result.IPs = append(result.IPs, &cIP6)
 		}
 	}
@@ -440,23 +447,23 @@ func GetDualStackAddresses(endpoint *network.EndpointInfo) (*IP, *IP) {
 
 	var ip4 *IP
 	var ip6 *IP
-	
+
 	ip4address := net.IPNet{}
 	ip4address.IP = endpoint.IPAddress
- 	ip4address.Mask = endpoint.IP4Mask
+	ip4address.Mask = endpoint.IP4Mask
 
 	ip4 = &IP{
-		Version: "4",
-		Address: cniTypes.IPNet(ip4address),
-		Gateway: endpoint.Gateway,
+		Version:        "4",
+		Address:        cniTypes.IPNet(ip4address),
+		Gateway:        endpoint.Gateway,
 		InterfaceIndex: 0,
 	}
 
 	if endpoint.IPAddress6.IP != nil {
 		ip6 = &IP{
-			Version: "6",
-			Address: cniTypes.IPNet(endpoint.IPAddress6),
-			Gateway: endpoint.Gateway6,
+			Version:        "6",
+			Address:        cniTypes.IPNet(endpoint.IPAddress6),
+			Gateway:        endpoint.Gateway6,
 			InterfaceIndex: 0,
 		}
 	}
