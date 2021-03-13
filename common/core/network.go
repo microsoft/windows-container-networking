@@ -227,7 +227,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	}
 
 	result.Print()
-	logrus.Debugf("[cni-net] result: %v", result.String())
+	logrus.Debugf("[cni-net] result: %+v", result)
 	return nil
 }
 
