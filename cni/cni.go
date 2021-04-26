@@ -107,7 +107,7 @@ type OptionalFlags struct {
 	LocalRoutePortMapping bool `json:"localRoutedPortMapping"`
 	AllowAclPortMapping   bool `json:"allowAclPortMapping"`
 	ForceBridgeGateway    bool `json:"forceBridgeGateway"` // Intended to be temporary workaround
-
+	EnableDualStack       bool `json:"enableDualStack"`
 }
 
 func (r *Result) Print() {
@@ -194,6 +194,7 @@ func (config *NetworkConfig) Serialize() []byte {
 // GetNetworkInfo from the NetworkConfig
 func (config *NetworkConfig) GetNetworkInfo(podNamespace string) *network.NetworkInfo {
 	var subnets []network.SubnetInfo
+	// Note the code below is looking inside the ipam specific configuration.
 	if config.Ipam.Subnet != "" {
 		ip, s, _ := net.ParseCIDR(config.Ipam.Subnet)
 		gatewayIP := ip.To4()
@@ -313,7 +314,13 @@ func (config *NetworkConfig) GetEndpointInfo(
 	}
 
 	if len(networkInfo.Subnets) > 0 {
+		// This subnet is not used when constructing
+		// hcn.HostComputeEndpoint from EndpointInfo
 		epInfo.Subnet = networkInfo.Subnets[0].AddressPrefix
+		// Gateway field (below) will be updated to the ipam allocated value
+		// (if applicable) in allocateIpam
+		// The Gateway6 field (ipv6 gatweay) is not derived like this and
+		// must be supplied through the ipam.
 		epInfo.Gateway = networkInfo.Subnets[0].GatewayAddress
 	}
 
@@ -346,24 +353,64 @@ func (config *NetworkConfig) GetEndpointInfo(
 }
 
 // GetCurrResult gets the result object
-func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo, ifname string) cniTypesCurr.Result {
+func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo, ifname string, cniConfig *NetworkConfig) cniTypesCurr.Result {
 	result := cniTypesCurr.Result{
 		IPs:    []*cniTypesCurr.IPConfig{},
 		Routes: []*cniTypes.Route{}}
 
 	var iFace = GetInterface(endpoint)
-	var ip = GetIP(network, endpoint)
-	ip.InterfaceIndex = 0
 
-	cIP := cniTypesCurr.IPConfig{
-		Version: ip.Version,
-		Address: net.IPNet{
-			IP:   ip.Address.IP,
-			Mask: ip.Address.Mask},
-		Gateway:   ip.Gateway,
-		Interface: &ip.InterfaceIndex,
-	}
-	result.IPs = append(result.IPs, &cIP)
+	if cniConfig.OptionalFlags.EnableDualStack == false {
+
+		var ip = GetIP(network, endpoint)
+		ip.InterfaceIndex = 0
+			
+    	cIP := cniTypesCurr.IPConfig{
+	    	Version: ip.Version,
+		    Address: net.IPNet{
+			    IP:   ip.Address.IP,
+    			Mask: ip.Address.Mask},
+	    	Gateway:   ip.Gateway,
+		    Interface: &ip.InterfaceIndex,
+	    }
+	    result.IPs = append(result.IPs, &cIP)
+
+    } else {
+
+    	ip4, ip6 := GetDualStackAddresses(endpoint)
+
+    	if ip4  != nil {
+
+			ip4.InterfaceIndex = 0
+
+	    	cIP4 := cniTypesCurr.IPConfig{
+		    	Version: ip4.Version,
+			    Address: net.IPNet{
+				    IP:   ip4.Address.IP,
+				    Mask: ip4.Address.Mask},
+    			Gateway:   ip4.Gateway,
+	    		Interface: &ip4.InterfaceIndex,
+		    }
+	
+    		result.IPs = append(result.IPs, &cIP4)
+    	}
+
+    	if ip6  != nil {
+
+			ip6.InterfaceIndex = 0
+
+	    	cIP6 := cniTypesCurr.IPConfig{
+		    	Version: ip6.Version,
+			    Address: net.IPNet{
+				    IP:   ip6.Address.IP,
+				    Mask: ip6.Address.Mask},
+    			Gateway:   ip6.Gateway,
+	    		Interface: &ip6.InterfaceIndex,
+		    }
+	
+    		result.IPs = append(result.IPs, &cIP6)
+    	}
+    }
 
 	// Add Interfaces to result.
 	iface := &cniTypesCurr.Interface{
@@ -388,6 +435,38 @@ func GetIP(network *network.NetworkInfo, endpoint *network.EndpointInfo) IP {
 		Gateway:        endpoint.Gateway,
 		InterfaceIndex: 0,
 	}
+}
+
+// GetDualStackAddresses returns the IPv4 and IPv6 addresses for the endpoint
+func GetDualStackAddresses(endpoint *network.EndpointInfo) (*IP, *IP) {
+
+	var ip4 *IP
+	var ip6 *IP
+	
+	if endpoint.IPAddress != nil {
+
+		ip4address := net.IPNet{}
+		ip4address.IP = endpoint.IPAddress
+ 		ip4address.Mask = endpoint.IP4Mask
+
+		ip4 = &IP{
+			Version: "4",
+			Address: cniTypes.IPNet(ip4address),
+			Gateway: endpoint.Gateway,
+			InterfaceIndex: 0,
+		}
+	}
+
+	if endpoint.IPAddress6.IP != nil {
+		ip6 = &IP{
+			Version: "6",
+			Address: cniTypes.IPNet(endpoint.IPAddress6),
+			Gateway: endpoint.Gateway6,
+			InterfaceIndex: 0,
+		}
+	}
+
+	return ip4, ip6
 }
 
 // GetInterface returns the interface for endpoint

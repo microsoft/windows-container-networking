@@ -31,8 +31,8 @@ type Manager interface {
 	// Endpoint
 	CreateEndpoint(networkID string, epInfo *EndpointInfo, namespaceID string) (*EndpointInfo, error)
 	DeleteEndpoint(endpointID string) error
-	GetEndpoint(endpointID string) (*EndpointInfo, error)
-	GetEndpointByName(endpointName string) (*EndpointInfo, error)
+	GetEndpoint(endpointID string, withIpv6 bool) (*EndpointInfo, error)
+	GetEndpointByName(endpointName string, withIpv6 bool) (*EndpointInfo, error)
 }
 
 // NewManager creates a new networkManager.
@@ -118,6 +118,7 @@ func (nm *networkManager) GetNetworkByName(networkName string) (*NetworkInfo, er
 
 // CreateEndpoint creates a new container endpoint.
 func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo, namespaceID string) (*EndpointInfo, error) {
+
 	nm.Lock()
 	defer nm.Unlock()
 
@@ -134,7 +135,7 @@ func (nm *networkManager) CreateEndpoint(networkID string, epInfo *EndpointInfo,
 		return nil, fmt.Errorf("error adding endpoint to namespace %v : endpoint %v", err, hcnEndpoint)
 	}
 
-	return GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint), err
+	return GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint, epInfo.DualStack), err
 }
 
 // DeleteEndpoint deletes an existing container endpoint.
@@ -185,7 +186,7 @@ func (nm *networkManager) DeleteEndpoint(endpointID string) error {
 }
 
 // GetEndpoint returns the endpoint matching the Id.
-func (nm *networkManager) GetEndpoint(endpointID string) (*EndpointInfo, error) {
+func (nm *networkManager) GetEndpoint(endpointID string, withIpv6 bool) (*EndpointInfo, error) {
 	nm.Lock()
 	defer nm.Unlock()
 
@@ -194,11 +195,11 @@ func (nm *networkManager) GetEndpoint(endpointID string) (*EndpointInfo, error) 
 		return nil, err
 	}
 
-	return GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint), nil
+	return GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint, withIpv6), nil
 }
 
 // GetEndpointByName returns the endpoint matching the Name.
-func (nm *networkManager) GetEndpointByName(endpointName string) (*EndpointInfo, error) {
+func (nm *networkManager) GetEndpointByName(endpointName string, withIpv6 bool) (*EndpointInfo, error) {
 	nm.Lock()
 	defer nm.Unlock()
 
@@ -207,5 +208,5 @@ func (nm *networkManager) GetEndpointByName(endpointName string) (*EndpointInfo,
 		return nil, err
 	}
 
-	return GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint), nil
+	return GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint, withIpv6), nil
 }

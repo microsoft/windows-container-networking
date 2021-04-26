@@ -5,6 +5,7 @@ package common
 
 import (
 	"net"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 )
@@ -21,4 +22,10 @@ func LogNetworkInterfaces() {
 		addrs, _ := iface.Addrs()
 		logrus.Debugf("[net] Network interface: %+v with IP addresses: %+v", iface, addrs)
 	}
+}
+
+func GetAddressAsCidr(ip string, prefix uint8) string {
+
+    return ip + string('/') + strconv.FormatUint(uint64(prefix), 10)
+
 }
