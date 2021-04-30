@@ -181,13 +181,13 @@ func GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint *hcn.HostComputeEndpoint
 			Nameservers: hcnEndpoint.Dns.ServerList,
 			Options:     hcnEndpoint.Dns.Options,
 		},
-		MacAddress: macAddr,
-		Gateway:    gwAddr,
-		IPAddress:  ipAddr4.IP,
-		IP4Mask: ipAddr4.Mask,
-		Gateway6: gwAddr6,
-		IPAddress6: ipAddr6,		
-		Policies:   GetEndpointPoliciesFromHostComputePolicies(hcnEndpoint.Policies),
+		MacAddress:  macAddr,
+		Gateway:     gwAddr,
+		IPAddress:   ipAddr4.IP,
+		IP4Mask:     ipAddr4.Mask,
+		Gateway6:    gwAddr6,
+		IPAddress6:  ipAddr6,		
+		Policies:    GetEndpointPoliciesFromHostComputePolicies(hcnEndpoint.Policies),
 	}
 
 }

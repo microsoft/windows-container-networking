@@ -319,7 +319,7 @@ func (config *NetworkConfig) GetEndpointInfo(
 		epInfo.Subnet = networkInfo.Subnets[0].AddressPrefix
 		// Gateway field (below) will be updated to the ipam allocated value
 		// (if applicable) in allocateIpam
-		// The Gateway6 field (ipv6 gatweay) is not derived like this and
+		// The Gateway6 field (ipv6 gateway) is not derived like this and
 		// must be supplied through the ipam.
 		epInfo.Gateway = networkInfo.Subnets[0].GatewayAddress
 	}
@@ -365,52 +365,50 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 		var ip = GetIP(network, endpoint)
 		ip.InterfaceIndex = 0
 			
-    	cIP := cniTypesCurr.IPConfig{
-	    	Version: ip.Version,
-		    Address: net.IPNet{
-			    IP:   ip.Address.IP,
-    			Mask: ip.Address.Mask},
-	    	Gateway:   ip.Gateway,
-		    Interface: &ip.InterfaceIndex,
-	    }
-	    result.IPs = append(result.IPs, &cIP)
+		cIP := cniTypesCurr.IPConfig{
+				Version: ip.Version,
+				Address: net.IPNet{
+					IP:		ip.Address.IP,
+					Mask:	ip.Address.Mask},
+				Gateway: ip.Gateway,
+				Interface: &ip.InterfaceIndex,
+		}
 
-    } else {
+		result.IPs = append(result.IPs, &cIP)
 
-    	ip4, ip6 := GetDualStackAddresses(endpoint)
+	} else {
 
-    	if ip4  != nil {
+		ip4, ip6 := GetDualStackAddresses(endpoint)
 
-			ip4.InterfaceIndex = 0
+		ip4.InterfaceIndex = 0
 
-	    	cIP4 := cniTypesCurr.IPConfig{
-		    	Version: ip4.Version,
-			    Address: net.IPNet{
-				    IP:   ip4.Address.IP,
-				    Mask: ip4.Address.Mask},
-    			Gateway:   ip4.Gateway,
-	    		Interface: &ip4.InterfaceIndex,
-		    }
+		cIP4 := cniTypesCurr.IPConfig{
+				Version: ip4.Version,
+				Address: net.IPNet{
+					IP:		ip4.Address.IP,
+					Mask:	ip4.Address.Mask},
+				Gateway: ip4.Gateway,
+				Interface: &ip4.InterfaceIndex,
+		}
 	
-    		result.IPs = append(result.IPs, &cIP4)
-    	}
+		result.IPs = append(result.IPs, &cIP4)
 
-    	if ip6  != nil {
+		if ip6  != nil {
 
 			ip6.InterfaceIndex = 0
 
-	    	cIP6 := cniTypesCurr.IPConfig{
-		    	Version: ip6.Version,
-			    Address: net.IPNet{
-				    IP:   ip6.Address.IP,
-				    Mask: ip6.Address.Mask},
-    			Gateway:   ip6.Gateway,
-	    		Interface: &ip6.InterfaceIndex,
-		    }
+			cIP6 := cniTypesCurr.IPConfig{
+					Version: ip6.Version,
+					Address: net.IPNet{
+						IP:		ip6.Address.IP,
+						Mask:	ip6.Address.Mask},
+					Gateway:	ip6.Gateway,
+					Interface: &ip6.InterfaceIndex,
+			}
 	
-    		result.IPs = append(result.IPs, &cIP6)
-    	}
-    }
+			result.IPs = append(result.IPs, &cIP6)
+		}
+	}
 
 	// Add Interfaces to result.
 	iface := &cniTypesCurr.Interface{
@@ -443,18 +441,15 @@ func GetDualStackAddresses(endpoint *network.EndpointInfo) (*IP, *IP) {
 	var ip4 *IP
 	var ip6 *IP
 	
-	if endpoint.IPAddress != nil {
+	ip4address := net.IPNet{}
+	ip4address.IP = endpoint.IPAddress
+ 	ip4address.Mask = endpoint.IP4Mask
 
-		ip4address := net.IPNet{}
-		ip4address.IP = endpoint.IPAddress
- 		ip4address.Mask = endpoint.IP4Mask
-
-		ip4 = &IP{
-			Version: "4",
-			Address: cniTypes.IPNet(ip4address),
-			Gateway: endpoint.Gateway,
-			InterfaceIndex: 0,
-		}
+	ip4 = &IP{
+		Version: "4",
+		Address: cniTypes.IPNet(ip4address),
+		Gateway: endpoint.Gateway,
+		InterfaceIndex: 0,
 	}
 
 	if endpoint.IPAddress6.IP != nil {
