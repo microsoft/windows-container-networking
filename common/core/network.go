@@ -7,11 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+
 	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/common"
 	"github.com/Microsoft/windows-container-networking/network"
 	"github.com/sirupsen/logrus"
-	"os"
 
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/containernetworking/cni/pkg/invoke"
@@ -94,6 +95,9 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	logrus.Debugf("[cni-net] Processing ADD command with args {ContainerID:%v Netns:%v IfName:%v Args:%v Path:%v}.",
 		args.ContainerID, args.Netns, args.IfName, args.Args, args.Path)
 
+	var err error
+	var nwConfig *network.NetworkInfo
+
 	podConfig, err := cni.ParseCniArgs(args.Args)
 	k8sNamespace := ""
 	if err == nil {
@@ -109,6 +113,12 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
 
+	if cniConfig.OptionalFlags.EnableDualStack == false {
+		logrus.Infof("[cni-net] Dual stack is disabled")
+	} else {
+		logrus.Infof("[cni-net] Dual stack is enabled")
+	}
+
 	// Convert cniConfig to NetworkInfo
 	// We don't set namespace, setting namespace is not valid for EP creation
 	networkInfo := cniConfig.GetNetworkInfo(k8sNamespace)
@@ -118,18 +128,30 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		return err
 	}
 
+	epInfo.DualStack = cniConfig.OptionalFlags.EnableDualStack
+
 	// Check for missing namespace
 	if args.Netns == "" {
 		logrus.Errorf("[cni-net] Missing Namespace, cannot add, endpoint : [%v].", epInfo)
 		return errors.New("cannot create endpoint without a namespace")
 	}
 
-	nwConfig, err := getOrCreateNetwork(plugin, networkInfo, cniConfig)
+	if cniConfig.OptionalFlags.EnableDualStack == false {
+		nwConfig, err = getOrCreateNetwork(plugin, networkInfo, cniConfig)
+	} else {
+		// The network must be created beforehand
+		nwConfig, err = plugin.nm.GetNetworkByName(cniConfig.Name)
+
+		if nwConfig.Type != network.L2Bridge {
+			logrus.Errorf("[cni-net] Dual stack can only be specified with l2bridge network: [%v].", nwConfig.Type)
+			return errors.New("Dual stack specified with non l2bridge network")	
+		}
+	}
 	if err != nil {
 		return err
 	}
 
-	hnsEndpoint, err := plugin.nm.GetEndpointByName(epInfo.Name)
+	hnsEndpoint, err := plugin.nm.GetEndpointByName(epInfo.Name, cniConfig.OptionalFlags.EnableDualStack)
 	if hnsEndpoint != nil {
 		logrus.Infof("[cni-net] Endpoint %+v already exists for network %v.", hnsEndpoint, nwConfig.ID)
 		// Endpoint exists
@@ -139,7 +161,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 			// Do not allow creation of more endpoints on same network
 			logrus.Debugf("[cni-net] Endpoint exists on same network, ignoring add : [%v].", epInfo)
 			// Convert result to the requested CNI version.
-			res := cni.GetCurrResult(nwConfig, hnsEndpoint, args.IfName)
+			res := cni.GetCurrResult(nwConfig, hnsEndpoint, args.IfName, cniConfig)
 			result, err := res.GetAsVersion(cniConfig.CniVersion)
 			if err != nil {
 				return err
@@ -152,9 +174,14 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		logrus.Debugf("[cni-net] Creating a new Endpoint")
 	}
 
-	// If Ipam was provided, allocate a pool and obtain V4 address
+	// If Ipam was provided, allocate a pool and obtain address
 	if cniConfig.Ipam.Type != "" {
-		err = allocateIpam(networkInfo, epInfo, cniConfig, cniConfig.OptionalFlags.ForceBridgeGateway)
+		err = allocateIpam(
+			networkInfo,
+			epInfo,
+			cniConfig,
+			cniConfig.OptionalFlags.ForceBridgeGateway,
+			args.StdinData)
 		if err != nil {
 			// Error was logged by allocateIpam.
 			return err
@@ -163,7 +190,8 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 			if resultError != nil {
 				logrus.Debugf("[cni-net] failure during ADD cleaning-up ipam, %v", err)
 				os.Setenv("CNI_COMMAND", "DEL")
-				err := deallocateIpam(cniConfig)
+				err := deallocateIpam(cniConfig, args.StdinData)
+
 				os.Setenv("CNI_COMMAND", "ADD")
 				if err != nil {
 					logrus.Debugf("[cni-net] failed during ADD command for clean-up delegate delete call, %v", err)
@@ -182,13 +210,12 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	}
 
 	// Convert result to the requested CNI version.
-	res := cni.GetCurrResult(nwConfig, epInfo, args.IfName)
+	res := cni.GetCurrResult(nwConfig, epInfo, args.IfName, cniConfig)
 	result, err := res.GetAsVersion(cniConfig.CniVersion)
 	if err != nil {
 		return err
 	}
 
-	//	result := cni.GetResult020(nwConfig, epInfo)
 	result.Print()
 	logrus.Debugf("[cni-net] result: %v", result.String())
 	return nil
@@ -199,11 +226,21 @@ func allocateIpam(
 	networkInfo *network.NetworkInfo,
 	endpointInfo *network.EndpointInfo,
 	cniConfig *cni.NetworkConfig,
-	forceBridgeGateway bool) error {
+	forceBridgeGateway bool,
+	networkConfByteStream []byte) error {
 	var result cniTypes.Result
 	var resultImpl *cniTypesImpl.Result
+	var err error
 
-	result, err := invoke.DelegateAdd(context.TODO(), cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
+	if cniConfig.OptionalFlags.EnableDualStack == false {
+		// It seems the right thing would be to pass the original byte stream instead of the one
+		// which cni parsed into NetworkConfig. However to preserve compatibility continue
+		// the current behavior when dual stack is not enabled
+		result, err = invoke.DelegateAdd(context.TODO(), cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
+	} else {
+		result, err = invoke.DelegateAdd(context.TODO(), cniConfig.Ipam.Type, networkConfByteStream, nil)
+	}
+
 	if err != nil {
 		logrus.Infof("[cni-net] Failed to allocate pool, err:%v.", err)
 		return err
@@ -216,33 +253,74 @@ func allocateIpam(
 	}
 
 	logrus.Debugf("[cni-net] IPAM plugin returned result %v.", resultImpl)
-	// Derive the subnet from allocated IP address.
-	if resultImpl.IP4 != nil {
-		var subnetInfo = network.SubnetInfo{
-			AddressPrefix:  resultImpl.IP4.IP,
-			GatewayAddress: resultImpl.IP4.Gateway,
+	if cniConfig.OptionalFlags.EnableDualStack == false {
+		// Derive the subnet from allocated IP address.
+		if resultImpl.IP4 != nil {
+			var subnetInfo = network.SubnetInfo{
+				AddressPrefix:  resultImpl.IP4.IP,
+				GatewayAddress: resultImpl.IP4.Gateway,
+			}
+
+			networkInfo.Subnets = append(networkInfo.Subnets, subnetInfo)
+			endpointInfo.IPAddress = resultImpl.IP4.IP.IP
+			endpointInfo.Gateway = resultImpl.IP4.Gateway
+
+			if forceBridgeGateway == true {
+				endpointInfo.Gateway = resultImpl.IP4.IP.IP.Mask(resultImpl.IP4.IP.Mask)
+				endpointInfo.Gateway[3] = 2
+			}
+
+			endpointInfo.Subnet = resultImpl.IP4.IP
+
+			for _, route := range resultImpl.IP4.Routes {
+				// Only default route is populated when calling HNS, and the below information is not passed
+				endpointInfo.Routes = append(endpointInfo.Routes, network.RouteInfo{Destination: route.Dst, Gateway: route.GW})
+			}
 		}
-		networkInfo.Subnets = append(networkInfo.Subnets, subnetInfo)
-		endpointInfo.IPAddress = resultImpl.IP4.IP.IP
-		endpointInfo.Gateway = resultImpl.IP4.Gateway
+	} else {
+		if resultImpl.IP4 != nil {
 
-		if forceBridgeGateway == true {
-			endpointInfo.Gateway = resultImpl.IP4.IP.IP.Mask(resultImpl.IP4.IP.Mask)
-			endpointInfo.Gateway[3] = 2
+			endpointInfo.IPAddress = resultImpl.IP4.IP.IP
+			endpointInfo.IP4Mask = resultImpl.IP4.IP.Mask
+			endpointInfo.Gateway = resultImpl.IP4.Gateway
+
+			if forceBridgeGateway == true {
+				endpointInfo.Gateway = resultImpl.IP4.IP.IP.Mask(resultImpl.IP4.IP.Mask)
+				endpointInfo.Gateway[3] = 2
+			}
+
+			for _, route := range resultImpl.IP4.Routes {
+				// Only default route is populated when calling HNS, and the below information is not being passed right now
+				endpointInfo.Routes = append(endpointInfo.Routes, network.RouteInfo{Destination: route.Dst, Gateway: route.GW})
+			}
 		}
 
-		endpointInfo.Subnet = resultImpl.IP4.IP
+		if resultImpl.IP6 != nil {
 
-		for _, route := range resultImpl.IP4.Routes {
-			endpointInfo.Routes = append(endpointInfo.Routes, network.RouteInfo{Destination: route.Dst, Gateway: route.GW})
+			endpointInfo.IPAddress6 = resultImpl.IP6.IP
+			endpointInfo.Gateway6 = resultImpl.IP6.Gateway
+
+			for _, route := range resultImpl.IP6.Routes {
+				// Only default route is populated when calling HNS, and the below information is not being passed right now
+				endpointInfo.Routes = append(endpointInfo.Routes, network.RouteInfo{Destination: route.Dst, Gateway: route.GW})
+			}
 		}
 	}
+
 	return nil
 }
 
 // deallocateIpam performs the cleanup necessary for removing an ipam
-func deallocateIpam(cniConfig *cni.NetworkConfig) error {
-	return invoke.DelegateDel(context.TODO(), cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
+func deallocateIpam(cniConfig *cni.NetworkConfig, networkConfByteStream []byte) error {
+
+	if cniConfig.OptionalFlags.EnableDualStack == false {
+		logrus.Infof("[cni-net] Delete from ipam when dual stack is disabled")
+		return invoke.DelegateDel(context.TODO(), cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
+	} else {
+		logrus.Infof("[cni-net] Delete from ipam when dual stack is enabled")
+		return invoke.DelegateDel(context.TODO(), cniConfig.Ipam.Type, networkConfByteStream, nil)
+	}
+
 }
 
 // getOrCreateNetwork
@@ -294,7 +372,8 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 
 	if cniConfig.Ipam.Type != "" {
 		logrus.Debugf("[cni-net] Ipam detected, executing delegate call to delete ipam, %v", cniConfig.Ipam)
-		err := deallocateIpam(cniConfig)
+		err := deallocateIpam(cniConfig, args.StdinData)
+
 		if err != nil {
 			logrus.Debugf("[cni-net] Failed during delete call for ipam, %v", err)
 			return fmt.Errorf("ipam deletion failed, %v", err)
@@ -307,7 +386,7 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	if err != nil {
 		return err
 	}
-	endpointInfo, err := plugin.nm.GetEndpointByName(epInfo.Name)
+	endpointInfo, err := plugin.nm.GetEndpointByName(epInfo.Name, cniConfig.OptionalFlags.EnableDualStack)
 	if err != nil {
 		if hcn.IsNotFoundError(err) {
 			logrus.Debugf("[cni-net] Endpoint was not found error, err:%v", err)

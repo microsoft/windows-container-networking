@@ -6,6 +6,7 @@ package network
 import (
 	"encoding/json"
 	"net"
+	"github.com/Microsoft/windows-container-networking/common"
 
 	"github.com/Microsoft/hcsshim/hcn"
 )
@@ -18,13 +19,17 @@ type EndpointInfo struct {
 	NetworkID   string
 	NamespaceID string
 	IPAddress   net.IP
+	IP4Mask     net.IPMask // Used when dual stack is enabled
+	IPAddress6  net.IPNet
 	MacAddress  net.HardwareAddr
 	Gateway     net.IP
+	Gateway6    net.IP
 	Routes      []RouteInfo
 	Policies    []Policy
 	Subnet      net.IPNet
 	DNS         DNSInfo
 	ContainerID string
+	DualStack   bool
 }
 
 // RouteInfo contains information about an IP route.
@@ -38,20 +43,45 @@ func (endpoint *EndpointInfo) GetHostComputeEndpoint() *hcn.HostComputeEndpoint 
 	// Check for nil on address objects.
 	ipAddr := ""
 	ipConfig := []hcn.IpConfig{}
+	routes := []hcn.Route{}	
+
 	if endpoint.IPAddress != nil {
 		ipAddr = endpoint.IPAddress.String()
 		ipConfig = append(ipConfig, hcn.IpConfig{
 			IpAddress: ipAddr,
 		})
 	}
+
+	if endpoint.IPAddress6.IP != nil {
+		ipAddr = endpoint.IPAddress6.IP.String()
+		ipConfig = append(ipConfig, hcn.IpConfig{
+			IpAddress: ipAddr,
+		})
+	}
+
 	macAddr := ""
 	if endpoint.MacAddress != nil {
 		macAddr = endpoint.MacAddress.String()
 	}
+
 	gwAddr := ""
 	if endpoint.Gateway != nil {
 		gwAddr = endpoint.Gateway.String()
 	}
+
+	routes = append(routes, hcn.Route{
+		NextHop:           gwAddr,
+		DestinationPrefix: "0.0.0.0/0",
+	})
+
+	if endpoint.Gateway6 != nil {
+		gwAddr6 := endpoint.Gateway6.String()
+		routes = append(routes, hcn.Route{
+			NextHop:           gwAddr6,
+			DestinationPrefix: "::/0",
+		})
+	}
+
 	return &hcn.HostComputeEndpoint{
 		Name:                 endpoint.Name,
 		Id:                   endpoint.ID,
@@ -64,12 +94,7 @@ func (endpoint *EndpointInfo) GetHostComputeEndpoint() *hcn.HostComputeEndpoint 
 			Options:    endpoint.DNS.Options,
 		},
 		MacAddress: macAddr,
-		Routes: []hcn.Route{
-			{
-				NextHop:           gwAddr,
-				DestinationPrefix: "0.0.0.0/0",
-			},
-		},
+		Routes: routes,
 		IpConfigurations: ipConfig,
 		SchemaVersion: hcn.SchemaVersion{
 			Major: 2,
@@ -80,17 +105,71 @@ func (endpoint *EndpointInfo) GetHostComputeEndpoint() *hcn.HostComputeEndpoint 
 }
 
 // GetEndpointInfoFromHostComputeEndpoint converts HostComputeEndpoint to CNI EndpointInfo.
-func GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint *hcn.HostComputeEndpoint) *EndpointInfo {
+func GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint *hcn.HostComputeEndpoint, withIpv6 bool) *EndpointInfo {
 	// Ignore empty MAC, GW, and IP.
 	macAddr, _ := net.ParseMAC(hcnEndpoint.MacAddress)
 	var gwAddr net.IP
-	if len(hcnEndpoint.Routes) > 0 {
-		gwAddr = net.ParseIP(hcnEndpoint.Routes[0].NextHop)
+	var gwAddr6 net.IP	
+	var ipAddr4 net.IPNet
+	var ipAddr6 net.IPNet
+
+	if withIpv6 == false {
+
+		if len(hcnEndpoint.Routes) > 0 {
+			gwAddr = net.ParseIP(hcnEndpoint.Routes[0].NextHop)
+		}
+			
+	    if len(hcnEndpoint.IpConfigurations) > 0 {
+		    ipAddr4.IP = net.ParseIP(hcnEndpoint.IpConfigurations[0].IpAddress)
+	    }
+    } else {
+		var ip4found bool
+		var ip6found bool
+
+		for _, addr := range hcnEndpoint.IpConfigurations {
+			if net.ParseIP(addr.IpAddress).To4() == nil &&
+			   ip6found == false {
+				ip, mask, _ := net.ParseCIDR(common.GetAddressAsCidr(addr.IpAddress, addr.PrefixLength))
+				ipAddr6.IP = ip
+				ipAddr6.Mask = mask.Mask
+				ip6found = true
+			} else {
+				if ip4found == false {
+				    ip, mask, _ := net.ParseCIDR(common.GetAddressAsCidr(addr.IpAddress, addr.PrefixLength))
+   		    	    ipAddr4.IP = ip
+	    	    	ipAddr4.Mask = mask.Mask
+				    ip4found = true
+				}
+			}
+
+			if ip4found && ip6found {
+				break
+			}
+		}
+
+		ip4found = false
+		ip6found = false
+
+		for _, r := range hcnEndpoint.Routes {
+
+			if net.ParseIP(r.NextHop).To4() == nil &&
+			   ip6found == false {
+				gwAddr6 = net.ParseIP(r.NextHop)
+				ip6found = true
+			} else {
+				if ip4found == false {
+    				gwAddr = net.ParseIP(r.NextHop)
+	    			ip4found = true
+				}
+			}
+
+			if ip4found && ip6found {
+				break
+			}
+
+		}
 	}
-	var ipAddr net.IP
-	if len(hcnEndpoint.IpConfigurations) > 0 {
-		ipAddr = net.ParseIP(hcnEndpoint.IpConfigurations[0].IpAddress)
-	}
+
 	return &EndpointInfo{
 		Name:        hcnEndpoint.Name,
 		ID:          hcnEndpoint.Id,
@@ -102,11 +181,15 @@ func GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint *hcn.HostComputeEndpoint
 			Nameservers: hcnEndpoint.Dns.ServerList,
 			Options:     hcnEndpoint.Dns.Options,
 		},
-		MacAddress: macAddr,
-		Gateway:    gwAddr,
-		IPAddress:  ipAddr,
-		Policies:   GetEndpointPoliciesFromHostComputePolicies(hcnEndpoint.Policies),
+		MacAddress:  macAddr,
+		Gateway:     gwAddr,
+		IPAddress:   ipAddr4.IP,
+		IP4Mask:     ipAddr4.Mask,
+		Gateway6:    gwAddr6,
+		IPAddress6:  ipAddr6,		
+		Policies:    GetEndpointPoliciesFromHostComputePolicies(hcnEndpoint.Policies),
 	}
+
 }
 
 // GetEndpointPoliciesFromHostComputePolicies converts HCN Endpoint policy into CNI Policy objects.
