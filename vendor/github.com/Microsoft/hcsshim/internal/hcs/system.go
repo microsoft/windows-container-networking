@@ -28,8 +28,7 @@ type System struct {
 	waitBlock      chan struct{}
 	waitError      error
 	exitError      error
-
-	os, typ string
+	os, typ        string
 }
 
 func newSystem(id string) *System {
@@ -401,6 +400,38 @@ func (computeSystem *System) Resume(ctx context.Context) (err error) {
 
 	resultJSON, err := vmcompute.HcsResumeComputeSystem(ctx, computeSystem.handle, "")
 	events, err := processAsyncHcsResult(ctx, err, resultJSON, computeSystem.callbackNumber, hcsNotificationSystemResumeCompleted, &timeout.SystemResume)
+	if err != nil {
+		return makeSystemError(computeSystem, operation, "", err, events)
+	}
+
+	return nil
+}
+
+// Save the compute system
+func (computeSystem *System) Save(ctx context.Context, options interface{}) (err error) {
+	operation := "hcsshim::System::Save"
+
+	// hcsSaveComputeSystemContext is an async peration. Start the outer span
+	// here to measure the full save time.
+	ctx, span := trace.StartSpan(ctx, operation)
+	defer span.End()
+	defer func() { oc.SetSpanStatus(span, err) }()
+	span.AddAttributes(trace.StringAttribute("cid", computeSystem.id))
+
+	saveOptions, err := json.Marshal(options)
+	if err != nil {
+		return err
+	}
+
+	computeSystem.handleLock.RLock()
+	defer computeSystem.handleLock.RUnlock()
+
+	if computeSystem.handle == 0 {
+		return makeSystemError(computeSystem, operation, "", ErrAlreadyClosed, nil)
+	}
+
+	result, err := vmcompute.HcsSaveComputeSystem(ctx, computeSystem.handle, string(saveOptions))
+	events, err := processAsyncHcsResult(ctx, err, result, computeSystem.callbackNumber, hcsNotificationSystemSaveCompleted, &timeout.SystemSave)
 	if err != nil {
 		return makeSystemError(computeSystem, operation, "", err, events)
 	}

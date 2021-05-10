@@ -39,18 +39,23 @@ type namespaceInfo struct {
 
 // UtilityVM is the object used by clients representing a utility VM
 type UtilityVM struct {
-	id              string               // Identifier for the utility VM (user supplied or generated)
-	runtimeID       guid.GUID            // Hyper-V VM ID
-	owner           string               // Owner for the utility VM (user supplied or generated)
-	operatingSystem string               // "windows" or "linux"
-	hcsSystem       *hcs.System          // The handle to the compute system
-	gcListener      net.Listener         // The GCS connection listener
-	gc              *gcs.GuestConnection // The GCS connection
-	processorCount  int32
-	m               sync.Mutex // Lock for adding/removing devices
+	id               string               // Identifier for the utility VM (user supplied or generated)
+	runtimeID        guid.GUID            // Hyper-V VM ID
+	owner            string               // Owner for the utility VM (user supplied or generated)
+	operatingSystem  string               // "windows" or "linux"
+	hcsSystem        *hcs.System          // The handle to the compute system
+	gcListener       net.Listener         // The GCS connection listener
+	gc               *gcs.GuestConnection // The GCS connection
+	processorCount   int32
+	physicallyBacked bool       // If the uvm is backed by physical memory and not virtual memory
+	m                sync.Mutex // Lock for adding/removing devices
 
 	exitErr error
 	exitCh  chan struct{}
+
+	// devicesPhysicallyBacked indicates if additional devices added to a uvm should be
+	// entirely physically backed
+	devicesPhysicallyBacked bool
 
 	// GCS bridge protocol and capabilities
 	protocol  uint32
@@ -82,6 +87,8 @@ type UtilityVM struct {
 	scsiLocations       [4][64]*SCSIMount // Hyper-V supports 4 controllers, 64 slots per controller. Limited to 1 controller for now though.
 	scsiControllerCount uint32            // Number of SCSI controllers in the utility VM
 
+	vpciDevices map[string]*VPCIDevice // map of device instance id to vpci device
+
 	// Plan9 are directories mapped into a Linux utility VM
 	plan9Counter uint64 // Each newly-added plan9 share has a counter used as its ID in the ResourceURI and for the name
 
@@ -106,4 +113,21 @@ type UtilityVM struct {
 	// This is used in generating unique mount path inside UVM for every mount.
 	// Access to this variable should be done atomically.
 	mountCounter uint64
+
+	// cpuGroupID is the ID of the cpugroup on the host that this UVM is assigned to
+	cpuGroupID string
+
+	// specifies if this UVM is created to be saved as a template
+	IsTemplate bool
+
+	// specifies if this UVM is a cloned from a template
+	IsClone bool
+
+	// ID of the template from which this clone was created. Only applies when IsClone
+	// is true
+	TemplateID string
+
+	// The CreateOpts used to create this uvm. These can be either of type
+	// uvm.OptionsLCOW or uvm.OptionsWCOW
+	createOpts interface{}
 }

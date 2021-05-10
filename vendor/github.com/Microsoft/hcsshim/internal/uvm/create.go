@@ -2,6 +2,7 @@ package uvm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/oc"
 	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 	"github.com/Microsoft/hcsshim/internal/schemaversion"
+	"github.com/Microsoft/hcsshim/osversion"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
 	"golang.org/x/sys/windows"
@@ -27,7 +29,7 @@ type Options struct {
 
 	// MemorySizeInMB sets the UVM memory. If `0` will default to platform
 	// default.
-	MemorySizeInMB int32
+	MemorySizeInMB uint64
 
 	LowMMIOGapInMB   uint64
 	HighMMIOBaseInMB uint64
@@ -36,6 +38,10 @@ type Options struct {
 	// Memory for UVM. Defaults to true. For physical backed memory, set to
 	// false.
 	AllowOvercommit bool
+
+	// FullyPhysicallyBacked describes if a uvm should be entirely physically
+	// backed, including in any additional devices
+	FullyPhysicallyBacked bool
 
 	// Memory for UVM. Defaults to false. For virtual memory with deferred
 	// commit, set to true.
@@ -64,6 +70,104 @@ type Options struct {
 	// ExternalGuestConnection sets whether the guest RPC connection is performed
 	// internally by the OS platform or externally by this package.
 	ExternalGuestConnection bool
+
+	// DisableCompartmentNamespace sets whether to disable namespacing the network compartment in the UVM
+	// for WCOW. Namespacing makes it so the compartment created for a container is essentially no longer
+	// aware or able to see any of the other compartments on the host (in this case the UVM).
+	// The compartment that the container is added to now behaves as the default compartment as
+	// far as the container is concerned and it is only able to view the NICs in the compartment it's assigned to.
+	// This is the compartment setup (and behavior) that is followed for V1 HCS schema containers (docker) so
+	// this change brings parity as well. This behavior is gated behind a registry key currently to avoid any
+	// unneccessary behavior and once this restriction is removed then we can remove the need for this variable
+	// and the associated annotation as well.
+	DisableCompartmentNamespace bool
+
+	// CPUGroupID set the ID of a CPUGroup on the host that the UVM should be added to on start.
+	// Defaults to an empty string which indicates the UVM should not be added to any CPUGroup.
+	CPUGroupID string
+}
+
+// compares the create opts used during template creation with the create opts
+// provided for clone creation. If they don't match (except for a few fields)
+// then clone creation is failed.
+func verifyCloneUvmCreateOpts(templateOpts, cloneOpts *OptionsWCOW) bool {
+	// Following fields can be different in the template and clone configurations.
+	// 1. the scratch layer path. i.e the last element of the LayerFolders path.
+	// 2. IsTemplate, IsClone and TemplateConfig variables.
+	// 3. ID
+	// 4. AdditionalHCSDocumentJSON
+
+	// Save the original values of the fields that we want to ignore and replace them with
+	// the same values as that of the other object. So that we can simply use `==` operator.
+	templateIDBackup := templateOpts.ID
+	templateAdditionalJsonBackup := templateOpts.AdditionHCSDocumentJSON
+	templateOpts.ID = cloneOpts.ID
+	templateOpts.AdditionHCSDocumentJSON = cloneOpts.AdditionHCSDocumentJSON
+
+	// We can't use `==` operator on structs which include slices in them. So compare the
+	// Layerfolders separately and then directly compare the Options struct.
+	result := (len(templateOpts.LayerFolders) == len(cloneOpts.LayerFolders))
+	for i := 0; result && i < len(templateOpts.LayerFolders)-1; i++ {
+		result = result && (templateOpts.LayerFolders[i] == cloneOpts.LayerFolders[i])
+	}
+	result = result && (*templateOpts.Options == *cloneOpts.Options)
+
+	// set original values
+	templateOpts.ID = templateIDBackup
+	templateOpts.AdditionHCSDocumentJSON = templateAdditionalJsonBackup
+	return result
+}
+
+// Verifies that the final UVM options are correct and supported.
+func verifyOptions(ctx context.Context, options interface{}) error {
+	switch opts := options.(type) {
+	case *OptionsLCOW:
+		if opts.EnableDeferredCommit && !opts.AllowOvercommit {
+			return errors.New("EnableDeferredCommit is not supported on physically backed VMs")
+		}
+		if opts.SCSIControllerCount > 1 {
+			return errors.New("SCSI controller count must be 0 or 1") // Future extension here for up to 4
+		}
+		if opts.VPMemDeviceCount > MaxVPMEMCount {
+			return fmt.Errorf("VPMem device count cannot be greater than %d", MaxVPMEMCount)
+		}
+		if opts.VPMemDeviceCount > 0 {
+			if opts.VPMemSizeBytes%4096 != 0 {
+				return errors.New("VPMemSizeBytes must be a multiple of 4096")
+			}
+		} else {
+			if opts.PreferredRootFSType == PreferredRootFSTypeVHD {
+				return errors.New("PreferredRootFSTypeVHD requires at least one VPMem device")
+			}
+		}
+		if opts.KernelDirect && osversion.Get().Build < 18286 {
+			return errors.New("KernelDirectBoot is not supported on builds older than 18286")
+		}
+
+		if opts.EnableColdDiscardHint && osversion.Get().Build < 18967 {
+			return errors.New("EnableColdDiscardHint is not supported on builds older than 18967")
+		}
+	case *OptionsWCOW:
+		if opts.EnableDeferredCommit && !opts.AllowOvercommit {
+			return errors.New("EnableDeferredCommit is not supported on physically backed VMs")
+		}
+		if len(opts.LayerFolders) < 2 {
+			return errors.New("at least 2 LayerFolders must be supplied")
+		}
+		if opts.IsClone && !verifyCloneUvmCreateOpts(&opts.TemplateConfig.CreateOpts, opts) {
+			return errors.New("clone configuration doesn't match with template configuration.")
+		}
+		if opts.IsClone && opts.TemplateConfig == nil {
+			return errors.New("template config can not be nil when creating clone")
+		}
+		if opts.IsClone && !opts.ExternalGuestConnection {
+			return errors.New("External gcs connection can not be disabled for clones")
+		}
+		if opts.IsTemplate && opts.FullyPhysicallyBacked {
+			return errors.New("Template can not be created from a full physically backed UVM")
+		}
+	}
+	return nil
 }
 
 // newDefaultOptions returns the default base options for WCOW and LCOW.
@@ -73,12 +177,14 @@ type Options struct {
 // If `owner` is empty it will be set to the calling executables name.
 func newDefaultOptions(id, owner string) *Options {
 	opts := &Options{
-		ID:                   id,
-		Owner:                owner,
-		MemorySizeInMB:       1024,
-		AllowOvercommit:      true,
-		EnableDeferredCommit: false,
-		ProcessorCount:       defaultProcessorCount(),
+		ID:                      id,
+		Owner:                   owner,
+		MemorySizeInMB:          1024,
+		AllowOvercommit:         true,
+		EnableDeferredCommit:    false,
+		ProcessorCount:          defaultProcessorCount(),
+		ExternalGuestConnection: true,
+		FullyPhysicallyBacked:   false,
 	}
 
 	if opts.Owner == "" {
@@ -137,14 +243,15 @@ func (uvm *UtilityVM) Close() (err error) {
 	windows.Close(uvm.vmmemProcess)
 
 	if uvm.hcsSystem != nil {
+		if err := uvm.ReleaseCPUGroup(ctx); err != nil {
+			log.G(ctx).WithError(err).Warn("failed to release VM resource")
+		}
 		uvm.hcsSystem.Terminate(ctx)
 		uvm.Wait()
 	}
-	if uvm.gc != nil {
-		uvm.gc.Close()
-	}
-	if uvm.gcListener != nil {
-		uvm.gcListener.Close()
+
+	if err := uvm.CloseGCSConnection(); err != nil {
+		log.G(ctx).Errorf("close GCS connection failed: %s", err)
 	}
 
 	// outputListener will only be nil for a Create -> Stop without a Start. In
@@ -216,18 +323,26 @@ func defaultProcessorCount() int32 {
 }
 
 // normalizeProcessorCount sets `uvm.processorCount` to `Min(requested,
-// runtime.NumCPU())`.
-func (uvm *UtilityVM) normalizeProcessorCount(ctx context.Context, requested int32) {
-	hostCount := int32(runtime.NumCPU())
+// logical CPU count)`.
+func (uvm *UtilityVM) normalizeProcessorCount(ctx context.Context, requested int32, processorTopology *hcsschema.ProcessorTopology) int32 {
+	// Use host processor information retrieved from HCS instead of runtime.NumCPU,
+	// GetMaximumProcessorCount or other OS level calls for two reasons.
+	// 1. Go uses GetProcessAffinityMask and falls back to GetSystemInfo both of
+	// which will not return LPs in another processor group.
+	// 2. GetMaximumProcessorCount will return all processors on the system
+	// but in configurations where the host partition doesn't see the full LP count
+	// i.e "Minroot" scenarios this won't be sufficient.
+	// (https://docs.microsoft.com/en-us/windows-server/virtualization/hyper-v/manage/manage-hyper-v-minroot-2016)
+	hostCount := int32(processorTopology.LogicalProcessorCount)
 	if requested > hostCount {
 		log.G(ctx).WithFields(logrus.Fields{
 			logfields.UVMID: uvm.id,
 			"requested":     requested,
 			"assigned":      hostCount,
 		}).Warn("Changing user requested CPUCount to current number of processors")
-		uvm.processorCount = hostCount
+		return hostCount
 	} else {
-		uvm.processorCount = requested
+		return requested
 	}
 }
 
@@ -236,7 +351,13 @@ func (uvm *UtilityVM) ProcessorCount() int32 {
 	return uvm.processorCount
 }
 
-func (uvm *UtilityVM) normalizeMemorySize(ctx context.Context, requested int32) int32 {
+// PhysicallyBacked returns if the UVM is backed by physical memory
+// (Over commit and deferred commit both false)
+func (uvm *UtilityVM) PhysicallyBacked() bool {
+	return uvm.physicallyBacked
+}
+
+func (uvm *UtilityVM) normalizeMemorySize(ctx context.Context, requested uint64) uint64 {
 	actual := (requested + 1) &^ 1 // align up to an even number
 	if requested != actual {
 		log.G(ctx).WithFields(logrus.Fields{
@@ -246,4 +367,22 @@ func (uvm *UtilityVM) normalizeMemorySize(ctx context.Context, requested int32) 
 		}).Warn("Changing user requested MemorySizeInMB to align to 2MB")
 	}
 	return actual
+}
+
+// DevicesPhysicallyBacked describes if additional devices added to the UVM
+// should be physically backed
+func (uvm *UtilityVM) DevicesPhysicallyBacked() bool {
+	return uvm.devicesPhysicallyBacked
+}
+
+// Closes the external GCS connection if it is being used and also closes the
+// listener for GCS connection.
+func (uvm *UtilityVM) CloseGCSConnection() (err error) {
+	if uvm.gc != nil {
+		err = uvm.gc.Close()
+	}
+	if uvm.gcListener != nil {
+		err = uvm.gcListener.Close()
+	}
+	return
 }
