@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 
 	"github.com/Microsoft/windows-container-networking/cni"
@@ -200,6 +201,10 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		}()
 	}
 
+	if cniConfig.OptionalFlags.GatewayFromAdditionalRoutes {
+		addEndpointGatewaysFromConfig(epInfo, cniConfig)
+	}
+
 	// Apply the Network Policy for Endpoint
 	epInfo.Policies = append(epInfo.Policies, networkInfo.Policies...)
 
@@ -219,6 +224,48 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	result.Print()
 	logrus.Debugf("[cni-net] result: %v", result.String())
 	return nil
+}
+
+func addEndpointGatewaysFromConfig(
+	endpointInfo *network.EndpointInfo,
+	cniConfig *cni.NetworkConfig) {
+
+	defaultDestipv4, defaultDestipv4Network, _ := net.ParseCIDR("0.0.0.0/0")
+	defaultDestipv6, defaultDestipv6Network, _ := net.ParseCIDR("::/0")
+
+	for _, addr := range cniConfig.AdditionalRoutes {
+
+		var isv4 bool
+		if addr.GW.To4() != nil {
+			isv4 = true
+		}
+
+		if isv4 {
+			if endpointInfo.Gateway == nil {
+			   m1, _ := addr.Dst.Mask.Size()
+			   m2, _ := defaultDestipv4Network.Mask.Size()
+
+			   if m1 == m2 &&
+			      addr.Dst.IP.Equal(defaultDestipv4) {
+					endpointInfo.Gateway = addr.GW
+				}
+			}
+		} else {
+				if endpointInfo.Gateway6 == nil {
+					m1, _ := addr.Dst.Mask.Size()
+					m2, _ := defaultDestipv6Network.Mask.Size()
+
+					if m1 == m2 &&
+					   addr.Dst.IP.Equal(defaultDestipv6) {
+						endpointInfo.Gateway6 = addr.GW
+				  }
+			}
+		}
+
+		if endpointInfo.Gateway != nil && endpointInfo.Gateway6 != nil {
+			break
+		}
+	}
 }
 
 // allocateIpam allocates a pool, then acquires a V4 subnet, endpoint address, and route.

@@ -42,14 +42,18 @@ func getAddArgs(epPolicies []hcn.EndpointPolicy) []cni.KVP {
 	return addArgs
 }
 
-func getDefaultAddArgs(hostIp string) []cni.KVP {
-	return getAddArgs(getDefaultEndpointPolicies(hostIp))
+func getDefaultAddArgs(hostIp string, ipv6 bool) []cni.KVP {
+	return getAddArgs(getDefaultEndpointPolicies(hostIp, ipv6))
 }
 
-func getDefaultEndpointPolicies(hostIp string) []hcn.EndpointPolicy {
+func getDefaultEndpointPolicies(hostIp string, ipv6 bool) []hcn.EndpointPolicy {
 	outBoundNatPol := hcn.EndpointPolicy{
 		Type:     "OutBoundNAT",
 		Settings: json.RawMessage(fmt.Sprintf(`{"Exceptions":["10.0.0.0/16","%s/32"]}`, hostIp)),
+	}
+	outBoundNatPolv6 := hcn.EndpointPolicy{
+		Type:     "OutBoundNAT",
+		Settings: json.RawMessage(`{"Exceptions":["fd00::/64"]}`),
 	}
 	sdnRoutePol := hcn.EndpointPolicy{
 		Type:     "SDNRoute",
@@ -59,7 +63,12 @@ func getDefaultEndpointPolicies(hostIp string) []hcn.EndpointPolicy {
 		Type:     "ProviderAddress",
 		Settings: json.RawMessage(fmt.Sprintf(`{"ProviderAddress":"%s"}`, hostIp)),
 	}
-	return []hcn.EndpointPolicy{outBoundNatPol, sdnRoutePol, paPol}
+
+	if !ipv6 {
+		return []hcn.EndpointPolicy{outBoundNatPol, sdnRoutePol, paPol}
+	} else {
+		return []hcn.EndpointPolicy{outBoundNatPol, outBoundNatPolv6, sdnRoutePol, paPol}
+	}
 }
 
 func CreateNetConfIpam(cidr string) cni.IpamConfig {
@@ -87,6 +96,42 @@ func CreateNetworkConf(cniVersion string, name string, pluginType string,
 		DNS:            *dns,
 		AdditionalArgs: addArgs,
 	}
+	
+	return &netConf
+}
+
+func CreateDualStackNetworkConf(cniVersion string, name string, pluginType string,
+	dns *cniTypes.DNS, addArgs []cni.KVP, gatewayPrefixv4 string, gatewayPrefixv6 string) *cni.NetworkConfig {
+
+	netConf := cni.NetworkConfig{
+		CniVersion:     cniVersion,
+		Name:           name,
+		Type:           pluginType,
+		DNS:            *dns,
+		AdditionalArgs: addArgs,
+	}
+
+	netConf.OptionalFlags.EnableDualStack = true
+	netConf.OptionalFlags.GatewayFromAdditionalRoutes = true
+
+	gwIp, _, _ := net.ParseCIDR(gatewayPrefixv4)
+	_, dst, _ := net.ParseCIDR("0.0.0.0/0")
+	testRoute := cniTypes.Route{
+		GW:  gwIp,
+		Dst: *dst,
+	}
+
+	netConf.AdditionalRoutes = []cniTypes.Route {testRoute}
+
+	gwIp, _, _ = net.ParseCIDR(gatewayPrefixv6)
+	_, dst, _ = net.ParseCIDR("::/0")
+	testRoute = cniTypes.Route{
+		GW:  gwIp,
+		Dst: *dst,
+	}
+
+	netConf.AdditionalRoutes = append(netConf.AdditionalRoutes, testRoute)
+
 	return &netConf
 }
 
@@ -97,6 +142,21 @@ func GetDefaultIpams() []hcn.Ipam {
 	}
 	subnet := hcn.Subnet{
 		IpAddressPrefix: "10.0.0.0/16",
+		Routes:          []hcn.Route{route},
+	}
+	ipam := hcn.Ipam{
+		Subnets: []hcn.Subnet{subnet},
+	}
+	return []hcn.Ipam{ipam}
+}
+
+func GetDefaultIpv6Ipams() []hcn.Ipam {
+	route := hcn.Route{
+		NextHop:           "fd00::1",
+		DestinationPrefix: "::/0",
+	}
+	subnet := hcn.Subnet{
+		IpAddressPrefix: "fd00::/64",
 		Routes:          []hcn.Route{route},
 	}
 	ipam := hcn.Ipam{
@@ -120,7 +180,7 @@ func GetNetAdapterPolicy() *hcn.NetworkPolicy {
 	}
 	return &netAdapterPolicy
 }
-func CreateGatewayEp(networkId string, ipAddress string) error {
+func CreateGatewayEp(networkId string, ipAddress string, ipv6Adress string) error {
 	gwEp := hcn.HostComputeEndpoint{
 		SchemaVersion: hcn.SchemaVersion{
 			Major: 2,
@@ -139,6 +199,27 @@ func CreateGatewayEp(networkId string, ipAddress string) error {
 				DestinationPrefix: "0.0.0.0/0",
 			}},
 	}
+
+	if ipv6Adress != "" {
+		ipv6Config := []hcn.IpConfig{
+			{
+				IpAddress:    ipv6Adress,
+				PrefixLength: 0,
+			},
+		}
+
+		ipv6Route := []hcn.Route{
+			{
+				NextHop:           "::",
+				DestinationPrefix: "::/0",
+			},
+		}
+
+		gwEp.IpConfigurations = append(gwEp.IpConfigurations, ipv6Config...)
+		gwEp.Routes = append(gwEp.Routes, ipv6Route...)
+
+	}
+
 	createdEp, err := gwEp.Create()
 	if err != nil {
 		createdEp, err = gwEp.Create()
@@ -174,6 +255,22 @@ func CreateGatewayEp(networkId string, ipAddress string) error {
 		return fmt.Errorf("Route 2 Error: %v", err)
 	}
 
+	if ipv6Adress != "" {
+
+		cmd := exec.Command("cmd", "/c", "netsh", "int", "ipv6", "set", "int", "%vNicName%", "for=en")
+		cmd.Run()
+		if err != nil {
+			return fmt.Errorf("Vnic Err: %v when enabling ipv6 for", err)
+		}
+
+		cmd = exec.Command("cmd", "/c", "netsh", "int", "ipv6", "add", "route", "fd00::/64", "%vEthernet%", "::", "metric=240")
+		err = cmd.Run()
+		if err != nil {
+			return fmt.Errorf("Route 3 Error: %v", err)
+		}	
+
+	}
+
 	os.Unsetenv("vEthernet")
 	os.Unsetenv("vNicName")
 	return nil
@@ -199,19 +296,25 @@ func CreateTestNetwork(name string, netType string, ipams []hcn.Ipam, tryGetNetA
 	return network
 }
 
-func MakeTestStruct(t *testing.T, testNetwork *hcn.HostComputeNetwork, pluginType string, epPols bool, needGW bool, cid string) *PluginUnitTest {
+func MakeTestStruct(t *testing.T, testNetwork *hcn.HostComputeNetwork,
+					pluginType string, epPols bool, needGW bool, cid string,
+					testDualStack bool, imageToUse string) *PluginUnitTest {
 	pt := PluginUnitTest{}
 	epPolicies := []hcn.EndpointPolicy{}
 	addArgs := []cni.KVP{}
-	foundIf, hostIp, err := GetDefaultInterface()
-	t.Logf("Interface Found: [%v] with ip [%v]", foundIf, hostIp)
+	foundIf, hostIp, hostIpv6, err := GetDefaultInterface(testDualStack)
+	if !testDualStack {
+		t.Logf("Interface Found: [%v] with ip [%v]", foundIf, hostIp)
+	} else {
+		t.Logf("Interface Found: [%v] with ipv4 [%v] ipv6 [%v]", foundIf, hostIp, hostIpv6)
+	}
 	if err != nil {
 		t.Errorf("unable to find interface %s. Testing failed", Interface)
 		return nil
 	}
 	if epPols {
-		epPolicies = getDefaultEndpointPolicies(hostIp.String())
-		addArgs = getDefaultAddArgs(hostIp.String())
+		epPolicies = getDefaultEndpointPolicies(hostIp.String(), testDualStack)
+		addArgs = getDefaultAddArgs(hostIp.String(), testDualStack)
 	}
 
 	if cid == "" {
@@ -223,10 +326,23 @@ func MakeTestStruct(t *testing.T, testNetwork *hcn.HostComputeNetwork, pluginTyp
 	if needGW {
 		netConfPrefix = "10.0.0.2/16"
 	}
-	netConf := CreateNetworkConf(defaultCniVersion, testNetwork.Name, pluginType, dns, addArgs, netConfPrefix)
+
+	var netConf *cni.NetworkConfig
+
+	if !testDualStack {
+		netConf = CreateNetworkConf(defaultCniVersion, testNetwork.Name, pluginType, dns, addArgs, netConfPrefix)
+	} else {
+
+		netConfPrefixv6 := "fd00::101/64"
+		netConf = CreateDualStackNetworkConf(defaultCniVersion, testNetwork.Name, pluginType, dns, addArgs, netConfPrefix, netConfPrefixv6)
+
+	}
 	netJson, _ := json.Marshal(netConf)
 	pt.NeedGW = needGW
-	pt.Create(netJson, testNetwork, epPolicies, dns.Search, dns.Nameservers, cid, hostIp)
+	pt.Create(netJson, testNetwork, epPolicies, dns.Search, dns.Nameservers, cid, hostIp, hostIpv6)
+	pt.DualStack = testDualStack
+	pt.ImageToUse = imageToUse
+
 	return &pt
 }
 

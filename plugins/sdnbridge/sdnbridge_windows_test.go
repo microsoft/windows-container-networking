@@ -1,18 +1,30 @@
 package main_test
 
 import (
+	"testing"
+
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/Microsoft/windows-container-networking/test/utilities"
-	"testing"
+
+	"os"
 )
+
+var testDualStack bool
+var imageToUse string
 
 func CreateBridgeTestNetwork() *hcn.HostComputeNetwork {
 	ipams := util.GetDefaultIpams()
+	if testDualStack {
+		ipams = append(ipams, util.GetDefaultIpv6Ipams()...)
+	}
 	return util.CreateTestNetwork("bridgeNet", "L2Bridge", ipams, true)
 }
 
 func TestBridgeCmdAdd(t *testing.T) {
+	testDualStack = (os.Getenv("TestDualStack") == "1")
+	imageToUse = os.Getenv("ImageToUse")
 	testNetwork := CreateBridgeTestNetwork()
-	pt := util.MakeTestStruct(t, testNetwork, "sdnbridge", true, true, "")
+	pt := util.MakeTestStruct(t, testNetwork, "sdnbridge", true, true, "", testDualStack, imageToUse)
+	pt.Ipv6Url = os.Getenv("Ipv6UrlToUse")
 	pt.RunAll(t)
 }
