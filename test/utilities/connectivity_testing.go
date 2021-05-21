@@ -100,8 +100,14 @@ func CreateNetworkConf(cniVersion string, name string, pluginType string,
 	return &netConf
 }
 
-func CreateDualStackNetworkConf(cniVersion string, name string, pluginType string,
-	dns *cniTypes.DNS, addArgs []cni.KVP, gatewayPrefixv4 string, gatewayPrefixv6 string) *cni.NetworkConfig {
+func CreateDualStackNetworkConf(
+	cniVersion string,
+	name string,
+	pluginType string,
+	dns *cniTypes.DNS,
+	addArgs []cni.KVP,
+	gatewayPrefixv4 string,
+	gatewayPrefixv6 string) *cni.NetworkConfig {
 
 	netConf := cni.NetworkConfig{
 		CniVersion:     cniVersion,
@@ -296,9 +302,16 @@ func CreateTestNetwork(name string, netType string, ipams []hcn.Ipam, tryGetNetA
 	return network
 }
 
-func MakeTestStruct(t *testing.T, testNetwork *hcn.HostComputeNetwork,
-					pluginType string, epPols bool, needGW bool, cid string,
-					testDualStack bool, imageToUse string) *PluginUnitTest {
+func MakeTestStruct(
+	t *testing.T,
+	testNetwork *hcn.HostComputeNetwork,
+	pluginType string,
+	epPols bool,
+	needGW bool,
+	cid string,
+	testDualStack bool,
+	imageToUse string) *PluginUnitTest {
+		
 	pt := PluginUnitTest{}
 	epPolicies := []hcn.EndpointPolicy{}
 	addArgs := []cni.KVP{}

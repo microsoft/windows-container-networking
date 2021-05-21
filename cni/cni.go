@@ -65,13 +65,13 @@ type IpamConfig struct {
 // NetworkConfig represents the Windows CNI plugin's network configuration.
 // Defined as per https://github.com/containernetworking/cni/blob/master/SPEC.md
 type NetworkConfig struct {
-	CniVersion       string        `json:"cniVersion"`
-	Name             string        `json:"name"` // Name is the Network Name. We would also use this as the Type of HNS Network
-	Type             string        `json:"type"` // As per SPEC, Type is Name of the Binary
-	Ipam             IpamConfig    `json:"ipam"`
-	DNS              cniTypes.DNS  `json:"dns"`
-	OptionalFlags    OptionalFlags `json:"optionalFlags"`
-	RuntimeConfig    RuntimeConfig `json:"runtimeConfig"`
+	CniVersion       string           `json:"cniVersion"`
+	Name             string           `json:"name"` // Name is the Network Name. We would also use this as the Type of HNS Network
+	Type             string           `json:"type"` // As per SPEC, Type is Name of the Binary
+	Ipam             IpamConfig       `json:"ipam"`
+	DNS              cniTypes.DNS     `json:"dns"`
+	OptionalFlags    OptionalFlags    `json:"optionalFlags"`
+	RuntimeConfig    RuntimeConfig    `json:"runtimeConfig"`
 	AdditionalRoutes []cniTypes.Route `json:"additionalRoutes"`
 	AdditionalArgs   []KVP
 }

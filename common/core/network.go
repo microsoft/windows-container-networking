@@ -202,6 +202,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	}
 
 	if cniConfig.OptionalFlags.GatewayFromAdditionalRoutes {
+		logrus.Debugf("[cni-net] GatewayFromAdditionalRoutes set")
 		addEndpointGatewaysFromConfig(epInfo, cniConfig)
 	}
 
@@ -242,23 +243,31 @@ func addEndpointGatewaysFromConfig(
 
 		if isv4 {
 			if endpointInfo.Gateway == nil {
-			   m1, _ := addr.Dst.Mask.Size()
-			   m2, _ := defaultDestipv4Network.Mask.Size()
 
-			   if m1 == m2 &&
-			      addr.Dst.IP.Equal(defaultDestipv4) {
+				logrus.Debugf("[cni-net] Found no ipv4 gateway")
+				
+				m1, _ := addr.Dst.Mask.Size()
+				m2, _ := defaultDestipv4Network.Mask.Size()
+
+				if m1 == m2 &&
+				   addr.Dst.IP.Equal(defaultDestipv4) {
 					endpointInfo.Gateway = addr.GW
+					logrus.Debugf("[cni-net] Assigned % as ipv4 gateway", endpointInfo.Gateway.String())
 				}
 			}
 		} else {
-				if endpointInfo.Gateway6 == nil {
-					m1, _ := addr.Dst.Mask.Size()
-					m2, _ := defaultDestipv6Network.Mask.Size()
+			if endpointInfo.Gateway6 == nil {
+				
+				logrus.Debugf("[cni-net] Found no ipv6 gateway")
 
-					if m1 == m2 &&
-					   addr.Dst.IP.Equal(defaultDestipv6) {
-						endpointInfo.Gateway6 = addr.GW
-				  }
+				m1, _ := addr.Dst.Mask.Size()
+				m2, _ := defaultDestipv6Network.Mask.Size()
+
+				if m1 == m2 &&
+				   addr.Dst.IP.Equal(defaultDestipv6) {
+					endpointInfo.Gateway6 = addr.GW
+					logrus.Debugf("[cni-net] Assigned % as ipv6 gateway", endpointInfo.Gateway6.String())
+				}
 			}
 		}
 
