@@ -6,9 +6,11 @@ package network
 import (
 	"encoding/json"
 	"errors"
-	"github.com/Microsoft/hcsshim/hcn"
+	"net"
 	"strconv"
 	"strings"
+
+	"github.com/Microsoft/hcsshim/hcn"
 )
 
 type CNIPolicyType string
@@ -57,7 +59,6 @@ func GetPortEnumValue(protocol string) (uint32, error) {
 
 // GetPortMappingPolicy creates an HCN PortMappingPolicy and stores it in CNI Policy.
 func GetPortMappingPolicy(externalPort int, internalPort int, protocol string, hostIp string, flags uint32) (Policy, error) {
-
 	// protocol can be passed either as a number or a name
 	protocolInt, err := GetPortEnumValue(protocol)
 	if err != nil {
@@ -77,6 +78,23 @@ func GetPortMappingPolicy(externalPort int, internalPort int, protocol string, h
 		Settings: rawPolicy,
 	}
 
+	rawData, _ := json.Marshal(endpointPolicy)
+	return Policy{
+		Type: EndpointPolicy,
+		Data: rawData,
+	}, nil
+}
+
+// GetLoopbackDSRPolicy creates a policy to support loopback direct server return.
+func GetLoopbackDSRPolicy(ip *net.IP) (Policy, error) {
+	hcnLoopbackRoute := hcn.OutboundNatPolicySetting{
+		Destinations: []string{ip.String()},
+	}
+	rawPolicy, _ := json.Marshal(hcnLoopbackRoute)
+	endpointPolicy := hcn.EndpointPolicy{
+		Type:     hcn.OutBoundNAT,
+		Settings: rawPolicy,
+	}
 	rawData, _ := json.Marshal(endpointPolicy)
 	return Policy{
 		Type: EndpointPolicy,

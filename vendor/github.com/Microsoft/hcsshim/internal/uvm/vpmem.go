@@ -2,6 +2,7 @@ package uvm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -19,7 +20,7 @@ const (
 var (
 	// ErrMaxVPMEMLayerSize is the error returned when the size of `hostPath` is
 	// greater than the max vPMEM layer size set at create time.
-	ErrMaxVPMEMLayerSize = fmt.Errorf("layer size is to large for VPMEM max size")
+	ErrMaxVPMEMLayerSize = errors.New("layer size is to large for VPMEM max size")
 )
 
 // findNextVPMEM finds the next available VPMem slot.
@@ -151,6 +152,12 @@ func (uvm *UtilityVM) RemoveVPMEM(ctx context.Context, hostPath string) (err err
 		if err := uvm.modify(ctx, modification); err != nil {
 			return fmt.Errorf("failed to remove VPMEM %s from utility VM %s: %s", hostPath, uvm.id, err)
 		}
+		log.G(ctx).WithFields(logrus.Fields{
+			"hostPath":     device.hostPath,
+			"uvmPath":      device.uvmPath,
+			"refCount":     device.refCount,
+			"deviceNumber": deviceNumber,
+		}).Debug("removed VPMEM location")
 		uvm.vpmemDevices[deviceNumber] = nil
 	} else {
 		device.refCount--
