@@ -26,10 +26,14 @@ type PluginUnitTest struct {
 	DummyContainer bool
 	NeedGW         bool
 	HostIp         *net.IP
+	HostIpv6       *net.IP
+	DualStack      bool
+	ImageToUse     string
+	Ipv6Url        string
 }
 
 func (pt *PluginUnitTest) Create(netJson []byte, network *hcn.HostComputeNetwork, expectedPolicies []hcn.EndpointPolicy,
-	expectedSearch []string, expectedNameservers []string, cid string, hostIp *net.IP) {
+	expectedSearch []string, expectedNameservers []string, cid string, hostIp *net.IP, hostIpv6 *net.IP) {
 	pt.NetConfJson = netJson
 	pt.Network = network
 	pt.Policies = expectedPolicies
@@ -37,6 +41,7 @@ func (pt *PluginUnitTest) Create(netJson []byte, network *hcn.HostComputeNetwork
 	pt.Nameservers = expectedNameservers
 	pt.ContainerId = cid
 	pt.HostIp = hostIp
+	pt.HostIpv6 = hostIpv6
 
 }
 
@@ -54,7 +59,12 @@ func (pt *PluginUnitTest) Setup(t *testing.T) error {
 		conf := cni.NetworkConfig{}
 		json.Unmarshal(pt.NetConfJson, &conf)
 
-		err = CreateGatewayEp(pt.Network.Id, conf.Ipam.Routes[0].GW.String())
+		if pt.DualStack {
+			err = CreateGatewayEp(pt.Network.Id, conf.AdditionalRoutes[0].GW.String(), conf.AdditionalRoutes[1].GW.String())	
+		} else {
+			err = CreateGatewayEp(pt.Network.Id, conf.Ipam.Routes[0].GW.String(), "")
+		}
+		
 		if err != nil {
 			t.Errorf("Error while creating Gateway Endpoint: %v", err)
 			return err
@@ -134,8 +144,8 @@ func comparePolicyLists(policyList1 []hcn.EndpointPolicy, policyList2 []hcn.Endp
 			if caseBlindStringComp(&t1, &t2) {
 				if bytes.Equal(policy1.Settings, policy2.Settings) {
 					numMatchedPolicies += 1
+					break
 				}
-				break
 			}
 		}
 	}
@@ -216,9 +226,13 @@ func (pt *PluginUnitTest) RunDelTest(t *testing.T, ci *ContainerInfo) error {
 func (pt *PluginUnitTest) RunUnitTest(t *testing.T) {
 	t.Logf("Running Unit Test")
 	cid := fmt.Sprintf("%vTestUnitContainer", string(pt.Network.Type))
+	imageName := ImageNano
+	if pt.ImageToUse != "" {
+		imageName = pt.ImageToUse
+	}
 	ct := &ContainerInfo{
 		ContainerId: cid,
-		Image:       ImageNano,
+		Image:       imageName,
 	}
 	ct.Setup(t)
 	pt.RunAddTest(t, ct)
@@ -229,12 +243,16 @@ func (pt *PluginUnitTest) RunUnitTest(t *testing.T) {
 
 func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers int) {
 	t.Logf("Start Connectivity Test")
+	imageName := ImageNano
+	if pt.ImageToUse != "" {
+		imageName = pt.ImageToUse
+	}
 	ctList := []*ContainerInfo{}
 	for i := 0; i < numContainers; i++ {
 		cid := fmt.Sprintf("%vTestContainer_%d", string(pt.Network.Type), i)
 		ct := &ContainerInfo{
 			ContainerId: cid,
-			Image:       ImageNano,
+			Image:       imageName,
 		}
 		ct.Setup(t)
 		err := pt.RunAddTest(t, ct)
@@ -248,10 +266,29 @@ func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers i
 		if i == 0 {
 			continue
 		}
-		err := ctList[0].RunContainerConnectivityTest(t, pt.HostIp.String(), ctx.Endpoint.IpConfigurations[0].IpAddress)
+
+		var err error
+
+		if !pt.DualStack {
+		    err = ctList[0].RunContainerConnectivityTest(
+							t, pt.HostIp.String(), ctx.Endpoint.IpConfigurations[0].IpAddress,
+							false, "", "", "")
+		} else {
+			var ipv4addr string
+			var ipv6addr string 
+
+			ipv4addr, ipv6addr, err = Getv4Andv6AddressFromIPConfigList(ctx.Endpoint.IpConfigurations)
+			if err == nil {
+				err = ctList[0].RunContainerConnectivityTest(
+					t, pt.HostIp.String(), ipv4addr,
+					true, pt.HostIpv6.String(), ipv6addr, pt.Ipv6Url)
+			}
+		}
+
 		if err != nil {
 			t.Errorf("Failed Container Connectivity: %v", err)
 		}
+
 	}
 
 	for _, ct := range ctList {

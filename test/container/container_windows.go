@@ -30,9 +30,17 @@ const (
 	SecondaryCurlResult = "HTTP/1.1 301 Moved Permanently"
 )
 
-func PingTest(c hcsshim.Container, ip string) error {
+func PingTest(c hcsshim.Container, ip string, ipv6 bool) error {
+	var pingCommand string
+
+	if !ipv6 {
+		pingCommand = fmt.Sprintf("ping -w 8000 -n 4 %s", ip)
+	} else {
+		pingCommand = fmt.Sprintf("ping -w 8000 -n 4 -6 %s", ip)
+	}
+
 	p, err := c.CreateProcess(&hcsshim.ProcessConfig{
-		CommandLine:      fmt.Sprintf("ping -w 8000 -n 4 %s", ip),
+		CommandLine:      pingCommand,
 		CreateStdInPipe:  true,
 		CreateStdOutPipe: true,
 		CreateStdErrPipe: true,
@@ -50,9 +58,15 @@ func PingTest(c hcsshim.Container, ip string) error {
 	}
 }
 
-func CurlTest(c hcsshim.Container, host string) error {
+func CurlTest(c hcsshim.Container, host string, ipv6 bool) error {
+	var curlCommand string
+	if !ipv6 {
+		curlCommand = fmt.Sprintf("curl -L -I  %s --http1.1", host)
+	} else {
+		curlCommand = fmt.Sprintf("curl -L -I  %s --http1.1 -6", host)
+	}
 	p, err := c.CreateProcess(&hcsshim.ProcessConfig{
-		CommandLine:      fmt.Sprintf("curl -L -I  %s --http1.1", host),
+		CommandLine:      curlCommand,
 		CreateStdInPipe:  true,
 		CreateStdOutPipe: true,
 		CreateStdErrPipe: true,
@@ -71,8 +85,15 @@ func CurlTest(c hcsshim.Container, host string) error {
 	}
 }
 
-func PingFromHost(containerIp string) error {
-	out, err := exec.Command("ping", "-w", "8000", "-n", "4", containerIp).Output()
+func PingFromHost(containerIp string, ipv6 bool) error {
+	var out []byte
+	var err error
+
+	if !ipv6{
+		out, err = exec.Command("ping", "-w", "8000", "-n", "4", containerIp).Output()
+	} else {
+		out, err = exec.Command("ping", "-w", "8000", "-n", "4", "-6", containerIp).Output()
+	}
 	if err != nil {
 		return err
 	}
