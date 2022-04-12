@@ -62,7 +62,7 @@ github.com/containerd/containerd/namespaces
 github.com/containerd/go-runc
 # github.com/containerd/ttrpc v1.0.2
 github.com/containerd/ttrpc
-# github.com/containernetworking/cni v0.8.0
+# github.com/containernetworking/cni v0.8.1
 github.com/containernetworking/cni/pkg/invoke
 github.com/containernetworking/cni/pkg/skel
 github.com/containernetworking/cni/pkg/types
