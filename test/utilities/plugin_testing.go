@@ -60,11 +60,11 @@ func (pt *PluginUnitTest) Setup(t *testing.T) error {
 		json.Unmarshal(pt.NetConfJson, &conf)
 
 		if pt.DualStack {
-			err = CreateGatewayEp(pt.Network.Id, conf.AdditionalRoutes[0].GW.String(), conf.AdditionalRoutes[1].GW.String())	
+			err = CreateGatewayEp(pt.Network.Id, conf.AdditionalRoutes[0].GW.String(), conf.AdditionalRoutes[1].GW.String())
 		} else {
 			err = CreateGatewayEp(pt.Network.Id, conf.Ipam.Routes[0].GW.String(), "")
 		}
-		
+
 		if err != nil {
 			t.Errorf("Error while creating Gateway Endpoint: %v", err)
 			return err
@@ -270,12 +270,12 @@ func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers i
 		var err error
 
 		if !pt.DualStack {
-		    err = ctList[0].RunContainerConnectivityTest(
-							t, pt.HostIp.String(), ctx.Endpoint.IpConfigurations[0].IpAddress,
-							false, "", "", "")
+			err = ctList[0].RunContainerConnectivityTest(
+				t, pt.HostIp.String(), ctx.Endpoint.IpConfigurations[0].IpAddress,
+				false, "", "", "")
 		} else {
 			var ipv4addr string
-			var ipv6addr string 
+			var ipv6addr string
 
 			ipv4addr, ipv6addr, err = Getv4Andv6AddressFromIPConfigList(ctx.Endpoint.IpConfigurations)
 			if err == nil {

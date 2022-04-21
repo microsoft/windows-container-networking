@@ -37,7 +37,7 @@ ENSURE_OUTPUTDIR_EXISTS := $(shell mkdir -p $(OUTPUTDIR))
 sdnbridge: $(OUTPUTDIR)/sdnbridge
 sdnoverlay: $(OUTPUTDIR)/sdnoverlay
 nat: $(OUTPUTDIR)/nat
-all: sdnbridge sdnoverlay nat
+all: format sdnbridge sdnoverlay nat
 
 # Containerized Build Environment
 .PHONY: dev

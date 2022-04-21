@@ -2,14 +2,14 @@ package util
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/common"
 	"github.com/Microsoft/windows-container-networking/common/core"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	"net"
-	"github.com/Microsoft/hcsshim/hcn"
-	"errors"
 )
 
 const Interface = "Ethernet"
@@ -39,11 +39,11 @@ func GetDefaultInterface(getipv6 bool) (*net.Interface, *net.IP, *net.IP, error)
 						foundv4 = true
 					}
 
-				} else { 
+				} else {
 					if getipv6 &&
-					   !foundv6 &&
-					   !ipTemp.IsLinkLocalUnicast() &&
-					   !ipTemp.IsLoopback() {
+						!foundv6 &&
+						!ipTemp.IsLinkLocalUnicast() &&
+						!ipTemp.IsLoopback() {
 
 						foundIpv6 = &ipTemp
 						foundv6 = true
@@ -52,7 +52,7 @@ func GetDefaultInterface(getipv6 bool) (*net.Interface, *net.IP, *net.IP, error)
 
 				if foundv4 && foundv6 {
 					break
-				}	
+				}
 			}
 		}
 	}
@@ -73,7 +73,7 @@ func Getv4Andv6AddressFromIPConfigList(addrs []hcn.IpConfig) (string, string, er
 		ip := net.ParseIP(ipconf.IpAddress)
 
 		if ip == nil {
-			err = errors.New("Invalid ip address found in ipconfigurations")	
+			err = errors.New("Invalid ip address found in ipconfigurations")
 			break
 		}
 
@@ -94,10 +94,10 @@ func Getv4Andv6AddressFromIPConfigList(addrs []hcn.IpConfig) (string, string, er
 	}
 
 	if ipv4addr == nil && ipv6addr == nil {
-		err = errors.New("No ipv4 or ipv6 address present in ipconfigurations")	
-	} else if ipv4addr == nil{
+		err = errors.New("No ipv4 or ipv6 address present in ipconfigurations")
+	} else if ipv4addr == nil {
 		err = errors.New("No ip4 address present in ipconfigurations")
-	} else if ipv6addr == nil{
+	} else if ipv6addr == nil {
 		err = errors.New("No ip6 address present in ipconfigurations")
 	} else {
 		ipv4address = ipv4addr.String()

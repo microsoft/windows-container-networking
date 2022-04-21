@@ -96,7 +96,7 @@ func CreateNetworkConf(cniVersion string, name string, pluginType string,
 		DNS:            *dns,
 		AdditionalArgs: addArgs,
 	}
-	
+
 	return &netConf
 }
 
@@ -127,7 +127,7 @@ func CreateDualStackNetworkConf(
 		Dst: *dst,
 	}
 
-	netConf.AdditionalRoutes = []cniTypes.Route {testRoute}
+	netConf.AdditionalRoutes = []cniTypes.Route{testRoute}
 
 	gwIp, _, _ = net.ParseCIDR(gatewayPrefixv6)
 	_, dst, _ = net.ParseCIDR("::/0")
@@ -273,7 +273,7 @@ func CreateGatewayEp(networkId string, ipAddress string, ipv6Adress string) erro
 		err = cmd.Run()
 		if err != nil {
 			return fmt.Errorf("Route 3 Error: %v", err)
-		}	
+		}
 
 	}
 
@@ -311,7 +311,7 @@ func MakeTestStruct(
 	cid string,
 	testDualStack bool,
 	imageToUse string) *PluginUnitTest {
-		
+
 	pt := PluginUnitTest{}
 	epPolicies := []hcn.EndpointPolicy{}
 	addArgs := []cni.KVP{}

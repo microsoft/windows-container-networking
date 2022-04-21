@@ -149,7 +149,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 
 		if nwConfig.Type != network.L2Bridge {
 			logrus.Errorf("[cni-net] Dual stack can only be specified with l2bridge network: [%v].", nwConfig.Type)
-			return errors.New("Dual stack specified with non l2bridge network")	
+			return errors.New("Dual stack specified with non l2bridge network")
 		}
 	}
 	if err != nil {
@@ -255,28 +255,28 @@ func addEndpointGatewaysFromConfig(
 			if endpointInfo.Gateway == nil {
 
 				logrus.Debugf("[cni-net] Found no ipv4 gateway")
-				
+
 				m1, _ := addr.Dst.Mask.Size()
 				m2, _ := defaultDestipv4Network.Mask.Size()
 
 				if m1 == m2 &&
-				   addr.Dst.IP.Equal(defaultDestipv4) {
+					addr.Dst.IP.Equal(defaultDestipv4) {
 					endpointInfo.Gateway = addr.GW
-					logrus.Debugf("[cni-net] Assigned % as ipv4 gateway", endpointInfo.Gateway.String())
+					logrus.Debugf("[cni-net] Assigned %s as ipv4 gateway", endpointInfo.Gateway.String())
 				}
 			}
 		} else {
 			if endpointInfo.Gateway6 == nil {
-				
+
 				logrus.Debugf("[cni-net] Found no ipv6 gateway")
 
 				m1, _ := addr.Dst.Mask.Size()
 				m2, _ := defaultDestipv6Network.Mask.Size()
 
 				if m1 == m2 &&
-				   addr.Dst.IP.Equal(defaultDestipv6) {
+					addr.Dst.IP.Equal(defaultDestipv6) {
 					endpointInfo.Gateway6 = addr.GW
-					logrus.Debugf("[cni-net] Assigned % as ipv6 gateway", endpointInfo.Gateway6.String())
+					logrus.Debugf("[cni-net] Assigned %s as ipv6 gateway", endpointInfo.Gateway6.String())
 				}
 			}
 		}

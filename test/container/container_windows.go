@@ -89,7 +89,7 @@ func PingFromHost(containerIp string, ipv6 bool) error {
 	var out []byte
 	var err error
 
-	if !ipv6{
+	if !ipv6 {
 		out, err = exec.Command("ping", "-w", "8000", "-n", "4", containerIp).Output()
 	} else {
 		out, err = exec.Command("ping", "-w", "8000", "-n", "4", "-6", containerIp).Output()
