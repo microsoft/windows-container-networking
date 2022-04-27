@@ -54,7 +54,7 @@ github.com/blang/semver
 github.com/containerd/cgroups/stats/v1
 # github.com/containerd/console v1.0.1
 github.com/containerd/console
-# github.com/containerd/containerd v1.5.0-beta.1
+# github.com/containerd/containerd v1.6.1
 github.com/containerd/containerd/errdefs
 github.com/containerd/containerd/identifiers
 github.com/containerd/containerd/namespaces
