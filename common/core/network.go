@@ -150,7 +150,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		if err != nil {
 			return errors.New(
 				fmt.Sprintf("Unable to find the network with name of '%s', this network must exist prior executing the cni plugin.",
-					nwConfig.Name))
+					cniConfig.Name))
 		}
 
 		if nwConfig.Type != network.L2Bridge {
