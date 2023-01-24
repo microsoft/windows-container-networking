@@ -258,7 +258,6 @@ class CniConf {
         <#2#>$defaultACLpolicyList += [Policy](@{Type='ACL';Value=@{RemoteAddresses=$this.Args.LocalEndpoint;RemotePorts='31002';Action='Allow';Protocols='6';Direction='Out';Priority=200}})
         <#3#>$defaultACLpolicyList += [Policy](@{Type='ACL';Value=@{RemoteAddresses=$this.Args.InfraPrefix;Action='Block';Direction='Out';Priority=1998}})
         <#4#>$defaultACLpolicyList += [Policy](@{Type='ACL';Value=@{RemoteAddresses=$this.Args.Subnet;Action='Block';Direction='Out';Priority=1999}})
-        <#4#>$defaultACLpolicyList += [Policy](@{Type='ACL';Value=@{Action='Allow';Protocols='6';LocalPorts='1111';Direction='In';Priority=101}})
         <#5#>$defaultACLpolicyList += [Policy](@{Type='ACL';Value=@{Action='Allow';Direction='Out';Priority=2000}})
         $defaultPolicies = $this.PopulatePolicies($defaultACLpolicyList)
 
