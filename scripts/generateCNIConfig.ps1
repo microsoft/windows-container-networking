@@ -1,7 +1,57 @@
+<#
+
+This script generates CNI config from a Base64 encoded JSON string
+
+Sample CNI Args:
+{
+	"Name": "azure-cni",
+	"Type": "L2Bridge",
+	"Subnet": "192.168.0.0/24",
+	"LocalEndpoint": "192.168.0.1",
+	"InfraPrefix": "172.16.0.0/24",
+	"Gateway": "192.168.0.2",
+	"DnsServer": "8.8.8.8",
+	"Policies": [{
+			"Type": "ACL",
+			"Value": {
+				"RemoteAddresses": "192.168.0.122",
+				"Remoteports": "8080",
+				"Action": "Block",
+				"Protocols": "6",
+				"Direction": "Out",
+				"Priority": 200
+			}
+		},
+		{
+			"Type": "ACL",
+			"Value": {
+				"Action": "Allow",
+				"Direction": "Out",
+				"Priority": 2000
+			}
+		}
+	]
+}
+
+Validate the json using JSON Lint (https://jsonlint.com/)
+
+Encode the JSON string with ASCII as the destination character set (https://www.base64encode.org/)
+
+Base64 Endoded string for above:
+ew0KCSJOYW1lIjogImF6dXJlLWNuaSIsDQoJIlR5cGUiOiAiTDJCcmlkZ2UiLA0KCSJTdWJuZXQiOiAiMTkyLjE2OC4wLjAvMjQiLA0KCSJMb2NhbEVuZHBvaW50IjogIjE5Mi4xNjguMC4xIiwNCgkiSW5mcmFQcmVmaXgiOiAiMTcyLjE2LjAuMC8yNCIsDQoJIkdhdGV3YXkiOiAiMTkyLjE2OC4wLjIiLA0KCSJEbnNTZXJ2ZXIiOiAiOC44LjguOCIsDQoJIlBvbGljaWVzIjogW3sNCgkJCSJUeXBlIjogIkFDTCIsDQoJCQkiVmFsdWUiOiB7DQoJCQkJIlJlbW90ZUFkZHJlc3NlcyI6ICIxOTIuMTY4LjAuMTIyIiwNCgkJCQkiUmVtb3RlcG9ydHMiOiAiODA4MCIsDQoJCQkJIkFjdGlvbiI6ICJCbG9jayIsDQoJCQkJIlByb3RvY29scyI6ICI2IiwNCgkJCQkiRGlyZWN0aW9uIjogIk91dCIsDQoJCQkJIlByaW9yaXR5IjogMjAwDQoJCQl9DQoJCX0sDQoJCXsNCgkJCSJUeXBlIjogIkFDTCIsDQoJCQkiVmFsdWUiOiB7DQoJCQkJIkFjdGlvbiI6ICJBbGxvdyIsDQoJCQkJIkRpcmVjdGlvbiI6ICJPdXQiLA0KCQkJCSJQcmlvcml0eSI6IDIwMDANCgkJCX0NCgkJfQ0KCV0NCn0=
+
+Report issues: containernetdev@microsoft.com
+
+#>
+
 [CmdletBinding()]
+
 param (
     [string]
-    $CniConfPath = ".\cniConf"
+    $CniConfPath = ".\cniConf",
+
+    [string]
+    $CniArgs = "ew0KCSJOYW1lIjogImF6dXJlLWNuaSIsDQoJIlR5cGUiOiAiTDJCcmlkZ2UiLA0KCSJTdWJuZXQiOiAiMTkyLjE2OC4wLjAvMjQiLA0KCSJMb2NhbEVuZHBvaW50IjogIjE5Mi4xNjguMC4xIiwNCgkiSW5mcmFQcmVmaXgiOiAiMTcyLjE2LjAuMC8yNCIsDQoJIkdhdGV3YXkiOiAiMTkyLjE2OC4wLjIiLA0KCSJEbnNTZXJ2ZXIiOiAiOC44LjguOCIsDQoJIlBvbGljaWVzIjogW3sNCgkJCSJUeXBlIjogIkFDTCIsDQoJCQkiVmFsdWUiOiB7DQoJCQkJIlJlbW90ZUFkZHJlc3NlcyI6ICIxOTIuMTY4LjAuMTIyIiwNCgkJCQkiUmVtb3RlcG9ydHMiOiAiODA4MCIsDQoJCQkJIkFjdGlvbiI6ICJCbG9jayIsDQoJCQkJIlByb3RvY29scyI6ICI2IiwNCgkJCQkiRGlyZWN0aW9uIjogIk91dCIsDQoJCQkJIlByaW9yaXR5IjogMjAwDQoJCQl9DQoJCX0sDQoJCXsNCgkJCSJUeXBlIjogIkFDTCIsDQoJCQkiVmFsdWUiOiB7DQoJCQkJIkFjdGlvbiI6ICJBbGxvdyIsDQoJCQkJIkRpcmVjdGlvbiI6ICJPdXQiLA0KCQkJCSJQcmlvcml0eSI6IDIwMDANCgkJCX0NCgkJfQ0KCV0NCn0="
 )
 
 enum OptionalKeysFlag {
@@ -18,13 +68,91 @@ enum WKOptionalKeysFlag {
     MaxFlags = 8 #[WKOptionalKeysFlag]::NoWKOptKeys -shl 3
 }
 
+class ACLPolicy {
+    [string] $RemoteAddresses
+    [string] $Remoteports
+    [string] $LocalPorts
+    [string] $Action
+    [string] $Protocols
+    [string] $Direction
+    [string] $RuleType
+    [string] $Scope
+    [string] $Priority
+
+    ACLPolicy([System.Object] $policySetting) {
+        $this.RemoteAddresses = $policySetting.RemoteAddresses
+        $this.Remoteports = $policySetting.Remoteports
+        $this.LocalPorts = $policySetting.LocalPorts
+        $this.Action = $policySetting.Action
+        $this.Protocols = $policySetting.Protocols
+        $this.Direction = $policySetting.Direction
+        $this.RuleType = $policySetting.RuleType
+        $this.Scope = $policySetting.Scope
+        $this.Priority = $policySetting.Priority
+    }
+
+    [PSCustomObject]Populate() {
+        $value = [System.Collections.Specialized.OrderedDictionary]::new()
+        $settings = [System.Collections.Specialized.OrderedDictionary]::new()
+        $value.Add('Type', 'ACL')
+        if ($this.RemoteAddresses -ne "") { $settings.Add('RemoteAddresses',$this.RemoteAddresses) }
+        if ($this.Action -ne "") { $settings.Add('Action',$this.Action) }
+        if ($this.Protocols -ne "") { $settings.Add('Protocols',$this.Protocols) }
+        if ($this.LocalPorts -ne "") { $settings.Add('LocalPorts',$this.LocalPorts) }
+        if ($this.Remoteports -ne "") { $settings.Add('Remoteports',$this.Remoteports) }
+        if ($this.Direction -ne "") { $settings.Add('Direction',$this.Direction) }
+        if ($this.RuleType -ne "") { $settings.Add('RuleType',$this.RuleType) }
+        if ($this.Scope -ne "") { $settings.Add('Scope',$this.Scope) }
+        if ($this.Priority -ne "") { $settings.Add('Priority',$this.Priority) }
+        $value.Add('Settings', $settings)
+        return $value
+    }
+}
+
+class Policy {
+    [string] $Type
+    [ACLPolicy] $Settings
+
+    Policy([System.Object] $policy) {
+        $this.Type = $policy.Type
+        $this.Settings = [ACLPolicy]::new($policy.Value)
+    }
+}
+
+class CniArgs {
+    [string] $Name
+    [string] $Type
+    [string] $Subnet
+    [string] $LocalEndpoint
+    [string] $InfraPrefix
+    [string] $Gateway
+    [string] $DnsServer
+    [Policy[]] $Policies
+
+    CniArgs([System.Object] $cniArgs) {
+        $this.Name = $cniArgs.Name
+        $this.Type = $cniArgs.Type
+        $this.Subnet = $cniArgs.Subnet
+        $this.LocalEndpoint = $cniArgs.LocalEndpoint
+        $this.Gateway = $cniArgs.Gateway
+        $this.DnsServer = $cniArgs.DnsServer
+        for($i=0; $i -lt $cniArgs.Policies.length; $i++) {
+            $policy = [Policy]::new($cniArgs.Policies[$i])
+            $this.Policies += $policy
+        }
+    }
+}
+
 class CniConf {
     [System.Collections.Specialized.OrderedDictionary] $CniBase
     [uint16] $OptKeyParams
     [uint16] $WKOptKeyParams
+    [CniArgs] $Args
 
-    CniConf() {
+    CniConf([System.Object] $cniArgs) {
         $this.CniBase = [System.Collections.Specialized.OrderedDictionary]::new()
+        # Initialize arguments
+        $this.Args = [CniArgs]::new($cniArgs)
         # Set optional fields to be populated
         $this.OptKeyParams = $this.OptKeyParams -bor [OptionalKeysFlag]::Capabilities -bor [OptionalKeysFlag]::Master
         # Set wellknown optional fields to be populated
@@ -40,8 +168,8 @@ class CniConf {
 
     PopulateRequiredKeys() {
         $this.CniBase.Add('cniVersion', '0.2.0')
-        $this.CniBase.Add('name', 'cni1') #TODO: Parameterize
-        $this.CniBase.Add('type', 'L2Bridge') #ToDO: Parameterize
+        $this.CniBase.Add('name', $this.Args.Name)
+        $this.CniBase.Add('type', $this.Args.Type)
     }
 
     PopulateOptionalKeys() {
@@ -70,9 +198,9 @@ class CniConf {
                 ([WKOptionalKeysFlag]::Ipam).value__ {
                     $ipamFields = [System.Collections.Specialized.OrderedDictionary]::new()
                     $ipamFields.Add('environment', 'azure')
-                    $ipamFields.Add('subnet', '192.168.0.0/24') # TODO: Parameterize Subnet
+                    $ipamFields.Add('subnet', $this.Args.Subnet)
                     $routes = @()
-                    $routes += (@{'GW'='192.168.0.2';}) # TODO: Parameterize
+                    $routes += (@{'GW'=$this.Args.Gateway;})
                     $ipamFields.Add('routes', $routes)
 
                     $this.CniBase.Add('ipam', $ipamFields)
@@ -81,7 +209,7 @@ class CniConf {
                 ([WKOptionalKeysFlag]::Dns).value__ {
                     $dnsFields = [System.Collections.Specialized.OrderedDictionary]::new()
                     $nameservers = @()
-                    $nameservers += ('8.8.8.8') #TODO: Parameterize
+                    $nameservers += ($this.Args.DnsServer)
                     $search = @()
                     $search += ('svc.cluster.local')
                     $dnsFields.Add('Nameservers', $nameservers)
@@ -99,18 +227,23 @@ class CniConf {
         $this.CniBase.Add('optionalFlags', $optionalFlags)
 
         $additionalArgs = @()
-        $additionalArgs += $this.PopulateDefaultpolicies()
+        $additionalArgs += $this.PopulateDefaultPolicies()
 
         # Populate user defined policies
+        if ($this.Args.Policies.length -gt 0) {
+            $additionalArgs += $this.PopulatePolicies($this.Args.Policies)
+        }
         $this.CniBase.Add('AdditionalArgs', $additionalArgs)
     }
 
-    [PSCustomObject[]] PopulateDefaultpolicies() {
+    [PSCustomObject[]] PopulateDefaultPolicies() {
         $defaultPolicies = @()
+
+        # Default OutBoundNAT Policy
         $outboundpolicy = [System.Collections.Specialized.OrderedDictionary]::new()
         $exceptions = @()
-        $exceptions += ('192.168.0.0/24') #TODO: Parameterize Subnet
-        $exceptions += ('192.168.0.101') #TODO: Parameterize LocalEndpoint
+        $exceptions += ($this.Args.Subnet)
+        $exceptions += ($this.Args.LocalEndpoint)
 
         $value = [System.Collections.Specialized.OrderedDictionary]::new()
         $value.Add('Type', 'OutBoundNAT')
@@ -119,74 +252,29 @@ class CniConf {
         $outboundPolicy.Add('Value', $value)
         $defaultPolicies += $outboundpolicy
 
-        $aclPolicy1 = [System.Collections.Specialized.OrderedDictionary]::new()
-        $value = [System.Collections.Specialized.OrderedDictionary]::new()
-        $value.Add('Type', 'ACL')
-        $value.Add('Settings', [ordered]@{
-                                'Action' = 'Allow';
-                                'Protocols' = '6';
-                                'LocalPorts' = '1111';
-                                'Direction' = 'In';
-                                'Priority' = 101;
-                                })
-        $aclPolicy1.Add('Name', 'EndpointPolicy')
-        $aclPolicy1.Add('Value', $value)
-        $defaultPolicies += $aclPolicy1
-
-        $aclPolicy2 = [System.Collections.Specialized.OrderedDictionary]::new()
-        $value = [System.Collections.Specialized.OrderedDictionary]::new()
-        $value.Add('Type', 'ACL')
-        $value.Add('Settings', [ordered]@{
-                                'RemoteAddresses' = '192.168.0.101'; #TODO: Parameterize LocalEndpoint
-                                'Remoteports' = '31002';
-                                'Action' = 'Allow';
-                                'Protocols' = '6';
-                                'Direction' = 'Out';
-                                'Priority' = 200;
-                                })
-        $aclPolicy2.Add('Name', 'EndpointPolicy')
-        $aclPolicy2.Add('Value', $value)
-        $defaultPolicies += $aclPolicy2
-
-        $aclPolicy3 = [System.Collections.Specialized.OrderedDictionary]::new()
-        $value = [System.Collections.Specialized.OrderedDictionary]::new()
-        $value.Add('Type', 'ACL')
-        $value.Add('Settings', [ordered]@{
-                                'RemoteAddresses' = '192.168.0.120'; #TODO: Parameterize InfraPrefix
-                                'Action' = 'Block';
-                                'Direction' = 'Out';
-                                'Priority' = 1998;
-                                })
-        $aclPolicy3.Add('Name', 'EndpointPolicy')
-        $aclPolicy3.Add('Value', $value)
-        $defaultPolicies += $aclPolicy3
-
-        $aclPolicy4 = [System.Collections.Specialized.OrderedDictionary]::new()
-        $value = [System.Collections.Specialized.OrderedDictionary]::new()
-        $value.Add('Type', 'ACL')
-        $value.Add('Settings', [ordered]@{
-                                'RemoteAddresses' = '192.168.0.0/24'; #TODO: Parameterize Subnet
-                                'Action' = 'Block';
-                                'Direction' = 'Out';
-                                'Priority' = 1999;
-                                })
-        $aclPolicy4.Add('Name', 'EndpointPolicy')
-        $aclPolicy4.Add('Value', $value)
-        $defaultPolicies += $aclPolicy4
-
-        $aclPolicy5 = [System.Collections.Specialized.OrderedDictionary]::new()
-        $value = [System.Collections.Specialized.OrderedDictionary]::new()
-        $value.Add('Type', 'ACL')
-        $value.Add('Settings', [ordered]@{
-                                'Action' = 'Allow';
-                                'Direction' = 'Out';
-                                'Priority' = 2000;
-                                })
-        $aclPolicy5.Add('Name', 'EndpointPolicy')
-        $aclPolicy5.Add('Value', $value)
-        $defaultPolicies += $aclPolicy5
+        # Default ACL PolicyList
+        $defaultACLpolicyList = @()
+        <#1#>$defaultACLpolicyList += [Policy](@{Type='ACL';Value=@{Action='Allow';Protocols='6';LocalPorts='1111';Direction='In';Priority=101}})
+        <#2#>$defaultACLpolicyList += [Policy](@{Type='ACL';Value=@{RemoteAddresses=$this.Args.LocalEndpoint;RemotePorts='31002';Action='Allow';Protocols='6';Direction='Out';Priority=200}})
+        <#3#>$defaultACLpolicyList += [Policy](@{Type='ACL';Value=@{RemoteAddresses=$this.Args.InfraPrefix;Action='Block';Direction='Out';Priority=1998}})
+        <#4#>$defaultACLpolicyList += [Policy](@{Type='ACL';Value=@{RemoteAddresses=$this.Args.Subnet;Action='Block';Direction='Out';Priority=1999}})
+        <#4#>$defaultACLpolicyList += [Policy](@{Type='ACL';Value=@{Action='Allow';Protocols='6';LocalPorts='1111';Direction='In';Priority=101}})
+        <#5#>$defaultACLpolicyList += [Policy](@{Type='ACL';Value=@{Action='Allow';Direction='Out';Priority=2000}})
+        $defaultPolicies = $this.PopulatePolicies($defaultACLpolicyList)
 
         return $defaultPolicies
+    }
+
+    [PSCustomObject[]] PopulatePolicies([System.Object[]] $policies) {
+        $policyList = @()
+        for ($i=0; $i -lt $policies.length; $i++) {
+            $policyOut = [System.Collections.Specialized.OrderedDictionary]::new()
+            $value = $policies[$i].Settings.Populate()
+            $policyOut.Add('Name', 'EndpointPolicy')
+            $policyOut.Add('Value', $value)
+            $policyList += $policyOut
+        }
+        return $policyList
     }
 
     [String]Get() {
@@ -196,6 +284,11 @@ class CniConf {
 }
 
 ######### Main #########
-$cniConfObj = [CniConf]::new()
+[string] $DecodedText = [System.Text.Encoding]::ascii.GetString([System.Convert]::FromBase64String($CniArgs))
+[System.Object] $cniArgs = $DecodedText | ConvertFrom-Json
+
+$cniConfObj = [CniConf]::new($cniArgs)
 $cniConfObj.Populate() 
 $cniConfObj.Get() | Out-File -FilePath $CniConfPath -Encoding ascii
+Write-Host "Generated CNI conf:"$CniConfPath
+Write-Host $cniConfObj.Get()
