@@ -277,7 +277,7 @@ class CniConf {
     }
 
     [String]Get() {
-        $cniConfString += ConvertTo-Json -Depth 50 $this.CniBase
+        $cniConfString = ConvertTo-Json -Depth 50 $this.CniBase
         return $cniConfString
     }
 }
@@ -289,5 +289,4 @@ class CniConf {
 $cniConfObj = [CniConf]::new($cniArgs)
 $cniConfObj.Populate() 
 $cniConfObj.Get() | Out-File -FilePath $CniConfPath -Encoding ascii
-Write-Host "Generated CNI conf:"$CniConfPath
-Write-Host $cniConfObj.Get()
+Write-Verbose -Message ("Generated CNI conf: {0}`n{1}" -f $CniConfPath, $cniConfObj.Get())
