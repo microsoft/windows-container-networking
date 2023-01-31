@@ -186,7 +186,7 @@ class CniConf {
                 }
 
                 ([OptionalKeysFlag]::Master).value__ {
-                    $this.CniBase.Add('master', 'External')
+                    $this.CniBase.Add('master', 'Ethernet')
                 }
             }
        } 
