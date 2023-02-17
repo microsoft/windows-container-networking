@@ -46,7 +46,7 @@ Validate the json using JSON Lint (https://jsonlint.com/)
 Encode the JSON string with ASCII as the destination character set (https://www.base64encode.org/)
 
 Base64 Endoded string for above:
-ew0KCSJOYW1lIjogImF6dXJlLWNuaSIsDQoJIlR5cGUiOiAiTDJCcmlkZ2UiLA0KCSJTdWJuZXQiOiAiMTkyLjE2OC4wLjAvMjQiLA0KCSJMb2NhbEVuZHBvaW50IjogIjE5Mi4xNjguMC4xIiwNCgkiSW5mcmFQcmVmaXgiOiAiMTcyLjE2LjAuMC8yNCIsDQoJIkdhdGV3YXkiOiAiMTkyLjE2OC4wLjIiLA0KCSJEbnNTZXJ2ZXIiOiAiOC44LjguOCIsDQoJIlBvbGljaWVzIjogW3sNCgkJCSJUeXBlIjogIkFDTCIsDQoJCQkiU2V0dGluZ3MiOiB7DQoJCQkJIlJlbW90ZUFkZHJlc3NlcyI6ICIxOTIuMTY4LjAuMTIyIiwNCgkJCQkiUmVtb3RlcG9ydHMiOiAiODA4MCIsDQoJCQkJIkFjdGlvbiI6ICJCbG9jayIsDQoJCQkJIlByb3RvY29scyI6ICI2IiwNCgkJCQkiRGlyZWN0aW9uIjogIk91dCIsDQoJCQkJIlByaW9yaXR5IjogMjAwDQoJCQl9DQoJCX0sDQoJCXsNCgkJCSJUeXBlIjogIkFDTCIsDQoJCQkiU2V0dGluZ3MiOiB7DQoJCQkJIkFjdGlvbiI6ICJBbGxvdyIsDQoJCQkJIkRpcmVjdGlvbiI6ICJPdXQiLA0KCQkJCSJQcmlvcml0eSI6IDIwMDANCgkJCX0NCgkJfSwNCiAgICAgICAgew0KICAgICAgICAgICAgIlR5cGUiOiAiU0ROUm91dGUiLA0KICAgICAgICAgICAgIlNldHRpbmdzIjogew0KICAgICAgICAgICAgICAgICJEZXN0aW5hdGlvblByZWZpeCI6ICIxMC4wLjAuMC84IiwNCiAgICAgICAgICAgICAgICAiTmVlZEVuY2FwIjogdHJ1ZQ0KICAgICAgICAgICAgfQ0KICAgICAgICB9DQoJXQ0KfQ==
+ew0KCSJOYW1lIjogImF6dXJlLWNuaSIsDQoJIlR5cGUiOiAiTDJCcmlkZ2UiLA0KICAgICJWZXJzaW9uIjogIjAuMy4wIiwNCgkiU3VibmV0IjogIjE5Mi4xNjguMC4wLzI0IiwNCgkiTG9jYWxFbmRwb2ludCI6ICIxOTIuMTY4LjAuMSIsDQoJIkluZnJhUHJlZml4IjogIjE3Mi4xNi4wLjAvMjQiLA0KCSJHYXRld2F5IjogIjE5Mi4xNjguMC4yIiwNCgkiRG5zU2VydmVycyI6ICI4LjguOC44IiwNCgkiQWRkaXRpb25hbFBvbGljaWVzIjogW3sNCgkJCSJUeXBlIjogIkFDTCIsDQoJCQkiU2V0dGluZ3MiOiB7DQoJCQkJIlJlbW90ZUFkZHJlc3NlcyI6ICIxOTIuMTY4LjAuMTIyIiwNCgkJCQkiUmVtb3RlcG9ydHMiOiAiODA4MCIsDQoJCQkJIkFjdGlvbiI6ICJCbG9jayIsDQoJCQkJIlByb3RvY29scyI6ICI2IiwNCgkJCQkiRGlyZWN0aW9uIjogIk91dCIsDQoJCQkJIlByaW9yaXR5IjogMjAwDQoJCQl9DQoJCX0sDQoJCXsNCgkJCSJUeXBlIjogIkFDTCIsDQoJCQkiU2V0dGluZ3MiOiB7DQoJCQkJIkFjdGlvbiI6ICJBbGxvdyIsDQoJCQkJIkRpcmVjdGlvbiI6ICJPdXQiLA0KCQkJCSJQcmlvcml0eSI6IDIwMDANCgkJCX0NCgkJfSwNCiAgICAgICAgew0KICAgICAgICAgICAgIlR5cGUiOiAiU0ROUm91dGUiLA0KICAgICAgICAgICAgIlNldHRpbmdzIjogew0KICAgICAgICAgICAgICAgICJEZXN0aW5hdGlvblByZWZpeCI6ICIxMC4wLjAuMC84IiwNCiAgICAgICAgICAgICAgICAiTmVlZEVuY2FwIjogdHJ1ZQ0KICAgICAgICAgICAgfQ0KICAgICAgICB9DQoJXQ0KfQ==
 
 Report issues: containernetdev@microsoft.com
 
@@ -59,8 +59,12 @@ param (
     [parameter(Mandatory = $false)] [string] $Version = "1.0.0"
 )
 
-# Default Values
+# Default Values/Global variables
 set-variable -name DEFAULT_CNI_VERSION -value ([string]"0.2.0") -Scope Global
+set-variable -name ACL_POLICY -value ([string]"ACL") -Scope Global
+set-variable -name DEFAULT_PRIORITY -value ([string]"-1") -Scope Global # Used to help in sorting the policies based on priority even if priority is not specified by user
+set-variable -name USER_POLICY_PRIO_START -value ([int]100) -Scope Global
+set-variable -name USER_POLICY_PRIO_END -value ([int]4096) -Scope Global
 
 enum OptionalKeysFlag {
     NoOptKeys = 1
@@ -81,9 +85,9 @@ class Policy {
     [System.Object] $Settings
 
     Policy([System.Object] $policy) {
-        write-host $policy
         $this.Type = $policy.Type
         $this.Settings = $policy.Settings
+        if (-not $this.Settings.psobject.Properties.name.Contains('Priority')) {$this.Settings | Add-Member -MemberType NoteProperty -Name "Priority" -Value $global:DEFAULT_PRIORITY}
     }
 }
 
@@ -97,19 +101,42 @@ class CniArgs {
     [string] $Gateway
     [string[]] $DnsServers
     [Policy[]] $AdditionalPolicies
+    [bool] $SkipDefaultPolicies # Undocumented parameter to disable system policies
 
     CniArgs([System.Object] $cniArgs) {
+        # Mandatory Parameters
         $this.Name = $cniArgs.Name
         $this.Type = $cniArgs.Type
-        if ($cniArgs.psobject.Properties.name.Contains('Version')) {$this.Version = $cniArgs.Version} else {$this.Version = $global:DEFAULT_CNI_VERSION}
         $this.Subnet = $cniArgs.Subnet
         $this.LocalEndpoint = $cniArgs.LocalEndpoint
         $this.InfraPrefix = $cniArgs.InfraPrefix
         $this.Gateway = $cniArgs.Gateway
         $this.DnsServers = $cniArgs.DnsServers
-        for($i=0; $i -lt $cniArgs.AdditionalPolicies.length; $i++) {
-            $policy = [Policy]::new($cniArgs.AdditionalPolicies[$i])
-            $this.AdditionalPolicies += $policy
+
+        # Optional Parameters
+        if ($cniArgs.psobject.Properties.name.Contains('Version')) {$this.Version = $cniArgs.Version} else {$this.Version = $global:DEFAULT_CNI_VERSION}
+        if ($cniArgs.psobject.Properties.name.Contains('SkipDefaultPolicies')) {$this.SkipDefaultPolicies = $true} else {$this.SkipDefaultPolicies = $false}
+        if ($cniArgs.psobject.Properties.name.Contains('AdditionalPolicies')) {
+            for($i=0; $i -lt $cniArgs.AdditionalPolicies.length; $i++) {
+                # Following constraints are ensured for policy priorities
+                # 1. System defined policies have 2 bands:
+                #    a. Non-negotiable: 1-99, cannot be overridden by user-defined policies
+                #    b. Negotiable: > 4096, van be overridden by user-defined policies
+                # 2. User defined policies should have priorities between 100 - 4096
+                # 3. Policies should be populated in ascending order of priorities to help in debugging (handled in populate APIs)
+
+                if($cniArgs.AdditionalPolicies[$i].Type -eq $global:ACL_POLICY) {
+                    $userPolicySetting = $cniArgs.AdditionalPolicies[$i].Settings
+                    # Ensure user-defined policy priorities are between 100-4096
+                    if(-not (($userPolicySetting.Priority -ge $global:USER_POLICY_PRIO_START) -and ($userPolicySetting.Priority -le $global:USER_POLICY_PRIO_END))) {
+                        Write-Verbose -Message ("User-defined ACL policies should have priority between {0} - {1}. Invalid policy: {2}" -f $global:USER_POLICY_PRIO_START, $global:USER_POLICY_PRIO_END, $userPolicySetting)
+                        throw "User-defined ACL policies should have priority between 100 - 4096. Invalid policy: $userPolicySetting"
+                    }
+                }
+
+                $policy = [Policy]::new($cniArgs.AdditionalPolicies[$i])
+                $this.AdditionalPolicies += $policy
+            }
         }
     }
 }
@@ -197,37 +224,63 @@ class CniConf {
         $optionalFlags.Add('allowAclPortMapping', $true)
         $this.CniBase.Add('optionalFlags', $optionalFlags)
 
-        $additionalArgs = @()
-        $additionalArgs += $this.PopulateDefaultPolicies()
+        if (-not $this.Args.SkipDefaultPolicies) {
+            $this.Args.AdditionalPolicies += $this.GetDefaultPolicies()
+        }
 
         # Populate user defined policies
+        Write-Verbose -Message ("Number of additional policies: {0}" -f $this.Args.AdditionalPolicies.length)
         if ($this.Args.AdditionalPolicies.length -gt 0) {
-            $additionalArgs += $this.PopulatePolicies($this.Args.AdditionalPolicies)
+            $this.Args.AdditionalPolicies = $this.Args.AdditionalPolicies |  Sort-Object -Property @{e={$_.Settings.Priority}}
+            $this.CniBase.Add('AdditionalArgs', $this.PopulatePolicies())
         }
-        $this.CniBase.Add('AdditionalArgs', $additionalArgs)
     }
 
-    [PSCustomObject[]] PopulateDefaultPolicies() {
+    [PSCustomObject[]] GetDefaultPolicies() {
         $defaultPolicies = @()
-
         # Default PolicyList
-        $defaultACLpolicyList = @()
-        <#1#>$defaultACLpolicyList += [Policy](@{Type='OutBoundNAT';Settings=@{Exceptions=@($this.Args.Subnet, $this.Args.LocalEndpoint)}} | ConvertTo-Json | ConvertFrom-Json)
-        <#2#>$defaultACLpolicyList += [Policy](@{Type='ACL';Settings=@{Action='Allow';Protocols='6';LocalPorts='1111';Direction='In';Priority=101}} | ConvertTo-Json | ConvertFrom-Json)
-        <#3#>$defaultACLpolicyList += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.LocalEndpoint;RemotePorts='31002';Action='Allow';Protocols='6';Direction='Out';Priority=200}} | ConvertTo-Json | ConvertFrom-Json)
-        <#4#>$defaultACLpolicyList += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.InfraPrefix;Action='Block';Direction='Out';Priority=1998}} | ConvertTo-Json | ConvertFrom-Json)
-        <#5#>$defaultACLpolicyList += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.Subnet;Action='Block';Direction='Out';Priority=1999}} | ConvertTo-Json | ConvertFrom-Json)
-        <#6#>$defaultACLpolicyList += [Policy](@{Type='ACL';Settings=@{Action='Allow';Direction='Out';Priority=2000}} | ConvertTo-Json | ConvertFrom-Json)
-        $defaultPolicies += $this.PopulatePolicies($defaultACLpolicyList)
+        <#1#>$defaultPolicies += [Policy](@{Type='OutBoundNAT';Settings=@{Exceptions=@($this.Args.Subnet, $this.Args.LocalEndpoint)}} | ConvertTo-Json | ConvertFrom-Json)
+        <#2#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{Action='Allow';Protocols='6';LocalPorts='1111';Direction='In';Priority=5000}} | ConvertTo-Json | ConvertFrom-Json)
+        <#3#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.LocalEndpoint;RemotePorts='31002';Action='Allow';Protocols='6';Direction='Out';Priority=5001}} | ConvertTo-Json | ConvertFrom-Json)
+        <#4#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.InfraPrefix;Action='Block';Direction='Out';Priority=6001}} | ConvertTo-Json | ConvertFrom-Json)
+        <#5#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.Subnet;Action='Block';Direction='Out';Priority=6002}} | ConvertTo-Json | ConvertFrom-Json)
+        <#6#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{Action='Allow';Direction='Out';Priority=6003}} | ConvertTo-Json | ConvertFrom-Json)
+        # WireServer ACL policies
+        <#7#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';RemotePorts='53';Action='Allow';Protocols='6';Direction='Out';Priority=5002}} | ConvertTo-Json | ConvertFrom-Json)
+        <#8#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';RemotePorts='53';Action='Allow';Protocols='17';Direction='Out';Priority=5002}} | ConvertTo-Json | ConvertFrom-Json)
+        <#9#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';Action='Block';Direction='Out';Priority=49}} | ConvertTo-Json | ConvertFrom-Json)
+        <#10#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='169.254.169.254/32';Action='Block';Direction='Out';Priority=50}} | ConvertTo-Json | ConvertFrom-Json)
+
+        for($i=0; $i -lt $defaultPolicies.length; $i++) {
+            # Ensure system policy priorities are either 1-100 (non-negotiable band) or >4096 (negotiable band)
+            $policySetting = $defaultPolicies[$i].Settings
+            if($defaultPolicies[$i].Type -eq $global:ACL_POLICY) {
+                # Assumption: System ACL policies are always configured with priorities.
+                if( -not ((($policySetting.Priority -gt '0') -and ($policySetting.Priority -lt $global:USER_POLICY_PRIO_START)) -or ($policySetting.Priority -gt $global:USER_POLICY_PRIO_END))) {
+                    Write-Verbose -Message ("System ACL policies should have priority either between 1 - 99 or above {0}. Invalid policy: {1}" -f $global:USER_POLICY_PRIO_END, $policySetting)
+                    throw "System ACL policies should have priority either between 1-99 or above 4096. Invalid policy: $policySetting"
+                }
+            } else{
+                # Use DEFAULT_PRIORITY for policies whose priorities need not be specified
+                if (-not $policySetting.psobject.Properties.name.Contains('Priority')) {
+                    $policySetting | Add-Member -MemberType NoteProperty -Name "Priority" -Value $global:DEFAULT_PRIORITY
+                }
+            }
+        }
 
         return $defaultPolicies
     }
 
-    [PSCustomObject[]] PopulatePolicies([System.Object[]] $policies) {
+    [PSCustomObject[]] PopulatePolicies() {
         $policyList = @()
+        $policies = $this.Args.AdditionalPolicies
         for ($i=0; $i -lt $policies.length; $i++) {
             $policyOut = [System.Collections.Specialized.OrderedDictionary]::new()
             $policyOut.Add('Name', 'EndpointPolicy')
+            # No need to populate default priority for policies
+            if (($policies[$i].Settings.psobject.Properties.name.Contains('Priority')) -and ($policies[$i].Settings.Priority -eq $global:DEFAULT_PRIORITY)) {
+                $policies[$i].Settings = $policies[$i].Settings | Select-Object -Property * -ExcludeProperty 'Priority'
+            }
             $policyOut.Add('Value', $policies[$i])
             $policyList += $policyOut
         }
@@ -242,8 +295,16 @@ class CniConf {
 
 ######### Main #########
 [string] $DecodedText = [System.Text.Encoding]::ascii.GetString([System.Convert]::FromBase64String($CniArgs))
+Write-Verbose -Message ("Cni Args: {0}`n" -f $DecodedText)
 [System.Object] $cniArgs = $DecodedText | ConvertFrom-Json
 $cniConfObj = [CniConf]::new($cniArgs)
 $cniConfObj.Populate() 
 $cniConfObj.Get() | Out-File -FilePath $CniConfPath -Encoding ascii
 Write-Verbose -Message ("Generated CNI conf: {0}`n{1}" -f $CniConfPath, $cniConfObj.Get())
+
+# Cleanup Global variables
+Remove-Variable -Name DEFAULT_CNI_VERSION -Scope Global
+Remove-Variable -name DEFAULT_PRIORITY -Scope Global
+Remove-Variable -name ACL_POLICY -Scope Global
+Remove-Variable -name USER_POLICY_PRIO_START -Scope Global
+Remove-Variable -name USER_POLICY_PRIO_END -Scope Global

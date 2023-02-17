@@ -78,6 +78,7 @@ Below sections specify the JSON format that needs to be passed after [encoding](
 - `AddditionalPolicies` (dictionary): Defined [here](#configure-additional-policies). This parameter is *NOT MANDATORY*.
 ### Configure Additional Policies
 #### ACL Policy
+There are few system-defined default ACL policies. Users can configure additional ACL polices with below parameters.
 - `RemoteAddresses` (string): This parameter is *NOT MANDATORY*.
 - `RemotePorts` (string): This parameter is *NOT MANDATORY*.
 - `Localports` (string): This parameter is *NOT MANDATORY*.
@@ -86,7 +87,7 @@ Below sections specify the JSON format that needs to be passed after [encoding](
 - `Direction` (string): This parameter is *MANDATORY*.
 - `RuleType` (string): This parameter is *NOT MANDATORY*.
 - `Scope` (string): This parameter is *NOT MANDATORY*.
-- `Priority` (integer): Relative priority of the rule. This parameter is *NOT MANDATORY*.
+- `Priority` (integer): Relative priority of the rule. User defined policies *MUST HAVE* priorities between 100-4096.
 #### OutBound NAT Policy
 - `Exceptions` (string[]): List of IP Addresses/CIDRs to allow NATed outbound traffic. This parameter is *MANDATORY*.
 #### SDNRoute Policy
@@ -102,7 +103,7 @@ Below sections specify the JSON format that needs to be passed after [encoding](
 	"LocalEndpoint": "192.168.0.1",
 	"InfraPrefix": "172.16.0.0/24",
 	"Gateway": "192.168.0.2",
-	"DnsServer": "8.8.8.8"
+	"DnsServers": "8.8.8.8"
 }
 ```
 ### Conf with additional policies
@@ -115,7 +116,7 @@ Below sections specify the JSON format that needs to be passed after [encoding](
 	"LocalEndpoint": "192.168.0.1",
 	"InfraPrefix": "172.16.0.0/24",
 	"Gateway": "192.168.0.2",
-	"DnsServer": "8.8.8.8",
+	"DnsServers": "8.8.8.8",
 	"AdditionalPolicies": [{
 			"Type": "ACL",
 			"Settings": {
@@ -147,6 +148,7 @@ Below sections specify the JSON format that needs to be passed after [encoding](
 ```
 ### Sample auto-generated CNI configuration
 ```jsonc
+VERBOSE: Generated CNI conf: .\cni.conf
 {
     "cniVersion":  "0.3.0",
     "name":  "azure-cni",
@@ -193,13 +195,10 @@ Below sections specify the JSON format that needs to be passed after [encoding](
                            {
                                "Name":  "EndpointPolicy",
                                "Value":  {
-                                             "Type":  "ACL",
+                                             "Type":  "SDNRoute",
                                              "Settings":  {
-                                                              "Priority":  101,
-                                                              "LocalPorts":  "1111",
-                                                              "Protocols":  "6",
-                                                              "Direction":  "In",
-                                                              "Action":  "Allow"
+                                                              "DestinationPrefix":  "10.0.0.0/8",
+                                                              "NeedEncap":  true
                                                           }
                                          }
                            },
@@ -208,23 +207,9 @@ Below sections specify the JSON format that needs to be passed after [encoding](
                                "Value":  {
                                              "Type":  "ACL",
                                              "Settings":  {
-                                                              "Action":  "Allow",
+                                                              "Priority":  49,
                                                               "Direction":  "Out",
-                                                              "RemotePorts":  "31002",
-                                                              "RemoteAddresses":  "192.168.0.1",
-                                                              "Priority":  200,
-                                                              "Protocols":  "6"
-                                                          }
-                                         }
-                           },
-                           {
-                               "Name":  "EndpointPolicy",
-                               "Value":  {
-                                             "Type":  "ACL",
-                                             "Settings":  {
-                                                              "Priority":  1998,
-                                                              "Direction":  "Out",
-                                                              "RemoteAddresses":  "172.16.0.0/24",
+                                                              "RemoteAddresses":  "168.63.129.16/32",
                                                               "Action":  "Block"
                                                           }
                                          }
@@ -234,21 +219,10 @@ Below sections specify the JSON format that needs to be passed after [encoding](
                                "Value":  {
                                              "Type":  "ACL",
                                              "Settings":  {
-                                                              "Priority":  1999,
+                                                              "Priority":  50,
                                                               "Direction":  "Out",
-                                                              "RemoteAddresses":  "192.168.0.0/24",
+                                                              "RemoteAddresses":  "169.254.169.254/32",
                                                               "Action":  "Block"
-                                                          }
-                                         }
-                           },
-                           {
-                               "Name":  "EndpointPolicy",
-                               "Value":  {
-                                             "Type":  "ACL",
-                                             "Settings":  {
-                                                              "Priority":  2000,
-                                                              "Direction":  "Out",
-                                                              "Action":  "Allow"
                                                           }
                                          }
                            },
@@ -280,10 +254,90 @@ Below sections specify the JSON format that needs to be passed after [encoding](
                            {
                                "Name":  "EndpointPolicy",
                                "Value":  {
-                                             "Type":  "SDNRoute",
+                                             "Type":  "ACL",
                                              "Settings":  {
-                                                              "DestinationPrefix":  "10.0.0.0/8",
-                                                              "NeedEncap":  true
+                                                              "Priority":  5000,
+                                                              "LocalPorts":  "1111",
+                                                              "Protocols":  "6",
+                                                              "Direction":  "In",
+                                                              "Action":  "Allow"
+                                                          }
+                                         }
+                           },
+                           {
+                               "Name":  "EndpointPolicy",
+                               "Value":  {
+                                             "Type":  "ACL",
+                                             "Settings":  {
+                                                              "Action":  "Allow",
+                                                              "Direction":  "Out",
+                                                              "RemotePorts":  "31002",
+                                                              "RemoteAddresses":  "192.168.0.1",
+                                                              "Priority":  5001,
+                                                              "Protocols":  "6"
+                                                          }
+                                         }
+                           },
+                           {
+                               "Name":  "EndpointPolicy",
+                               "Value":  {
+                                             "Type":  "ACL",
+                                             "Settings":  {
+                                                              "Action":  "Allow",
+                                                              "Direction":  "Out",
+                                                              "RemotePorts":  "53",
+                                                              "RemoteAddresses":  "168.63.129.16/32",
+                                                              "Priority":  5002,
+                                                              "Protocols":  "6"
+                                                          }
+                                         }
+                           },
+                           {
+                               "Name":  "EndpointPolicy",
+                               "Value":  {
+                                             "Type":  "ACL",
+                                             "Settings":  {
+                                                              "Action":  "Allow",
+                                                              "Direction":  "Out",
+                                                              "RemotePorts":  "53",
+                                                              "RemoteAddresses":  "168.63.129.16/32",
+                                                              "Priority":  5002,
+                                                              "Protocols":  "17"
+                                                          }
+                                         }
+                           },
+                           {
+                               "Name":  "EndpointPolicy",
+                               "Value":  {
+                                             "Type":  "ACL",
+                                             "Settings":  {
+                                                              "Priority":  6001,
+                                                              "Direction":  "Out",
+                                                              "RemoteAddresses":  "172.16.0.0/24",
+                                                              "Action":  "Block"
+                                                          }
+                                         }
+                           },
+                           {
+                               "Name":  "EndpointPolicy",
+                               "Value":  {
+                                             "Type":  "ACL",
+                                             "Settings":  {
+                                                              "Priority":  6002,
+                                                              "Direction":  "Out",
+                                                              "RemoteAddresses":  "192.168.0.0/24",
+                                                              "Action":  "Block"
+                                                          }
+                                         }
+                           },
+                           {
+                               "Name":  "EndpointPolicy",
+                               "Value":  {
+                                             "Type":  "ACL",
+                                             "Settings":  {
+                                                              "Priority":  6003,
+                                                              "Direction":  "Out",
+                                                              "Action":  "Allow"
                                                           }
                                          }
                            }
