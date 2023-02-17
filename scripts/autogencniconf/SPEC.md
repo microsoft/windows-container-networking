@@ -9,7 +9,7 @@
   - [Section 2: Required Parameters](#section-2-required-parameters)
   - [Section 3: WellKnown Parameters](#section-3-wellknown-parameters)
   - [Section 4: Additional Parameters](#section-4-additional-parameters)
-    - [Additional Policies](#configure-additional0policies)
+    - [Additional Policies](#configure-additional-policies)
       - [ACL Policy](#acl-policy)
       - [OutBound NAT Policy](#outbound-nat-policy)
       - [SDNRoute Policy](#sdnroute-policy)
@@ -72,9 +72,9 @@ Below sections specify the JSON format that needs to be passed after [encoding](
 - `Gateway` (string): IP Address of the Gateway for the endpoint. This parameter is *MANDATORY*.
 ## Section 4: Additional Parameters
 **Additional keys, platform-specific:**
-- `Subnet` (string): CIDR of the network corresponding to endpoint. Used to configure default policies for the endpoint.This parameter is *MANDATORY*.
+- `Subnet` (string): CIDR of the network corresponding to endpoint or POD subnet. Used to configure default policies for the endpoint.This parameter is *MANDATORY*.
 - `LocalEndpoint` (string): IP Address of the local endpoint. Used to configure default policies for the endpoint. This parameter is *MANDATORY*.
-- `InfraPrefix` (string): CIDR of the underlying infra network. Used to configure default policies for the network. This parameter is *MANDATORY*.
+- `InfraPrefix` (string): CIDR of the management network of the underlying node. Used to configure default policies for the network. This parameter is *MANDATORY*.
 - `AddditionalPolicies` (dictionary): Defined [here](#configure-additional-policies). This parameter is *NOT MANDATORY*.
 ### Configure Additional Policies
 #### ACL Policy
