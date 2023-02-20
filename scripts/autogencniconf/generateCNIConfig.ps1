@@ -240,16 +240,14 @@ class CniConf {
         $defaultPolicies = @()
         # Default PolicyList
         <#1#>$defaultPolicies += [Policy](@{Type='OutBoundNAT';Settings=@{Exceptions=@($this.Args.Subnet, $this.Args.LocalEndpoint)}} | ConvertTo-Json | ConvertFrom-Json)
-        <#2#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{Action='Allow';Protocols='6';LocalPorts='1111';Direction='In';Priority=5000}} | ConvertTo-Json | ConvertFrom-Json)
-        <#3#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.LocalEndpoint;RemotePorts='31002';Action='Allow';Protocols='6';Direction='Out';Priority=5001}} | ConvertTo-Json | ConvertFrom-Json)
-        <#4#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.InfraPrefix;Action='Block';Direction='Out';Priority=6001}} | ConvertTo-Json | ConvertFrom-Json)
-        <#5#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.Subnet;Action='Block';Direction='Out';Priority=6002}} | ConvertTo-Json | ConvertFrom-Json)
-        <#6#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{Action='Allow';Direction='Out';Priority=6003}} | ConvertTo-Json | ConvertFrom-Json)
+        <#2#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.InfraPrefix;Action='Block';Direction='Out';Priority=6001}} | ConvertTo-Json | ConvertFrom-Json)
+        <#3#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.Subnet;Action='Block';Direction='Out';Priority=6002}} | ConvertTo-Json | ConvertFrom-Json)
+        <#4#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{Action='Allow';Direction='Out';Priority=6003}} | ConvertTo-Json | ConvertFrom-Json)
         # WireServer ACL policies
-        <#7#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';RemotePorts='53';Action='Allow';Protocols='6';Direction='Out';Priority=5002}} | ConvertTo-Json | ConvertFrom-Json)
-        <#8#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';RemotePorts='53';Action='Allow';Protocols='17';Direction='Out';Priority=5002}} | ConvertTo-Json | ConvertFrom-Json)
-        <#9#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';Action='Block';Direction='Out';Priority=49}} | ConvertTo-Json | ConvertFrom-Json)
-        <#10#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='169.254.169.254/32';Action='Block';Direction='Out';Priority=50}} | ConvertTo-Json | ConvertFrom-Json)
+        <#5#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';RemotePorts='53';Action='Allow';Protocols='6';Direction='Out';Priority=47}} | ConvertTo-Json | ConvertFrom-Json)
+        <#6#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';RemotePorts='53';Action='Allow';Protocols='17';Direction='Out';Priority=48}} | ConvertTo-Json | ConvertFrom-Json)
+        <#7#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';Action='Block';Direction='Out';Priority=49}} | ConvertTo-Json | ConvertFrom-Json)
+        <#8#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='169.254.169.254/32';Action='Block';Direction='Out';Priority=50}} | ConvertTo-Json | ConvertFrom-Json)
 
         for($i=0; $i -lt $defaultPolicies.length; $i++) {
             # Ensure system policy priorities are either 1-100 (non-negotiable band) or >4096 (negotiable band)
