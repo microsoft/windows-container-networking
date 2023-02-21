@@ -59,12 +59,12 @@ param (
     [parameter(Mandatory = $false)] [string] $Version = "1.0.0"
 )
 
-# Default Values/Global variables
-set-variable -name DEFAULT_CNI_VERSION -value ([string]"0.2.0") -Scope Global
-set-variable -name ACL_POLICY -value ([string]"ACL") -Scope Global
-set-variable -name DEFAULT_PRIORITY -value ([string]"-1") -Scope Global # Used to help in sorting the policies based on priority even if priority is not specified by user
-set-variable -name USER_POLICY_PRIO_START -value ([int]100) -Scope Global
-set-variable -name USER_POLICY_PRIO_END -value ([int]4096) -Scope Global
+# Default Values/Script variables
+set-variable -name DEFAULT_CNI_VERSION -value ([string]"0.2.0") -Scope Script
+set-variable -name ACL_POLICY -value ([string]"ACL") -Scope Script
+set-variable -name DEFAULT_PRIORITY -value ([string]"-1") -Scope Script # Used to help in sorting the policies based on priority even if priority is not specified by user
+set-variable -name USER_POLICY_PRIO_START -value ([int]100) -Scope Script
+set-variable -name USER_POLICY_PRIO_END -value ([int]4096) -Scope Script
 
 enum OptionalKeysFlag {
     NoOptKeys = 1
@@ -87,7 +87,7 @@ class Policy {
     Policy([System.Object] $policy) {
         $this.Type = $policy.Type
         $this.Settings = $policy.Settings
-        if (-not $this.Settings.psobject.Properties.name.Contains('Priority')) {$this.Settings | Add-Member -MemberType NoteProperty -Name "Priority" -Value $global:DEFAULT_PRIORITY}
+        if (-not $this.Settings.psobject.Properties.name.Contains('Priority')) {$this.Settings | Add-Member -MemberType NoteProperty -Name "Priority" -Value $script:DEFAULT_PRIORITY}
     }
 }
 
@@ -114,7 +114,7 @@ class CniArgs {
         $this.DnsServers = $cniArgs.DnsServers
 
         # Optional Parameters
-        if ($cniArgs.psobject.Properties.name.Contains('Version')) {$this.Version = $cniArgs.Version} else {$this.Version = $global:DEFAULT_CNI_VERSION}
+        if ($cniArgs.psobject.Properties.name.Contains('Version')) {$this.Version = $cniArgs.Version} else {$this.Version = $script:DEFAULT_CNI_VERSION}
         if ($cniArgs.psobject.Properties.name.Contains('SkipDefaultPolicies')) {$this.SkipDefaultPolicies = $true} else {$this.SkipDefaultPolicies = $false}
         if ($cniArgs.psobject.Properties.name.Contains('AdditionalPolicies')) {
             for($i=0; $i -lt $cniArgs.AdditionalPolicies.length; $i++) {
@@ -125,11 +125,11 @@ class CniArgs {
                 # 2. User defined policies should have priorities between 100 - 4096
                 # 3. Policies should be populated in ascending order of priorities to help in debugging (handled in populate APIs)
 
-                if($cniArgs.AdditionalPolicies[$i].Type -eq $global:ACL_POLICY) {
+                if($cniArgs.AdditionalPolicies[$i].Type -eq $script:ACL_POLICY) {
                     $userPolicySetting = $cniArgs.AdditionalPolicies[$i].Settings
                     # Ensure user-defined policy priorities are between 100-4096
-                    if(-not (($userPolicySetting.Priority -ge $global:USER_POLICY_PRIO_START) -and ($userPolicySetting.Priority -le $global:USER_POLICY_PRIO_END))) {
-                        Write-Verbose -Message ("User-defined ACL policies should have priority between {0} - {1}. Invalid policy: {2}" -f $global:USER_POLICY_PRIO_START, $global:USER_POLICY_PRIO_END, $userPolicySetting)
+                    if(-not (($userPolicySetting.Priority -ge $script:USER_POLICY_PRIO_START) -and ($userPolicySetting.Priority -le $script:USER_POLICY_PRIO_END))) {
+                        Write-Verbose -Message ("User-defined ACL policies should have priority between {0} - {1}. Invalid policy: {2}" -f $script:USER_POLICY_PRIO_START, $script:USER_POLICY_PRIO_END, $userPolicySetting)
                         throw "User-defined ACL policies should have priority between 100 - 4096. Invalid policy: $userPolicySetting"
                     }
                 }
@@ -252,16 +252,16 @@ class CniConf {
         for($i=0; $i -lt $defaultPolicies.length; $i++) {
             # Ensure system policy priorities are either 1-100 (non-negotiable band) or >4096 (negotiable band)
             $policySetting = $defaultPolicies[$i].Settings
-            if($defaultPolicies[$i].Type -eq $global:ACL_POLICY) {
+            if($defaultPolicies[$i].Type -eq $script:ACL_POLICY) {
                 # Assumption: System ACL policies are always configured with priorities.
-                if( -not ((($policySetting.Priority -gt '0') -and ($policySetting.Priority -lt $global:USER_POLICY_PRIO_START)) -or ($policySetting.Priority -gt $global:USER_POLICY_PRIO_END))) {
-                    Write-Verbose -Message ("System ACL policies should have priority either between 1 - 99 or above {0}. Invalid policy: {1}" -f $global:USER_POLICY_PRIO_END, $policySetting)
+                if( -not ((($policySetting.Priority -gt '0') -and ($policySetting.Priority -lt $script:USER_POLICY_PRIO_START)) -or ($policySetting.Priority -gt $script:USER_POLICY_PRIO_END))) {
+                    Write-Verbose -Message ("System ACL policies should have priority either between 1 - 99 or above {0}. Invalid policy: {1}" -f $script:USER_POLICY_PRIO_END, $policySetting)
                     throw "System ACL policies should have priority either between 1-99 or above 4096. Invalid policy: $policySetting"
                 }
             } else{
                 # Use DEFAULT_PRIORITY for policies whose priorities need not be specified
                 if (-not $policySetting.psobject.Properties.name.Contains('Priority')) {
-                    $policySetting | Add-Member -MemberType NoteProperty -Name "Priority" -Value $global:DEFAULT_PRIORITY
+                    $policySetting | Add-Member -MemberType NoteProperty -Name "Priority" -Value $script:DEFAULT_PRIORITY
                 }
             }
         }
@@ -276,7 +276,7 @@ class CniConf {
             $policyOut = [System.Collections.Specialized.OrderedDictionary]::new()
             $policyOut.Add('Name', 'EndpointPolicy')
             # No need to populate default priority for policies
-            if (($policies[$i].Settings.psobject.Properties.name.Contains('Priority')) -and ($policies[$i].Settings.Priority -eq $global:DEFAULT_PRIORITY)) {
+            if (($policies[$i].Settings.psobject.Properties.name.Contains('Priority')) -and ($policies[$i].Settings.Priority -eq $script:DEFAULT_PRIORITY)) {
                 $policies[$i].Settings = $policies[$i].Settings | Select-Object -Property * -ExcludeProperty 'Priority'
             }
             $policyOut.Add('Value', $policies[$i])
@@ -300,9 +300,9 @@ $cniConfObj.Populate()
 $cniConfObj.Get() | Out-File -FilePath $CniConfPath -Encoding ascii
 Write-Verbose -Message ("Generated CNI conf: {0}`n{1}" -f $CniConfPath, $cniConfObj.Get())
 
-# Cleanup Global variables
-Remove-Variable -Name DEFAULT_CNI_VERSION -Scope Global
-Remove-Variable -name DEFAULT_PRIORITY -Scope Global
-Remove-Variable -name ACL_POLICY -Scope Global
-Remove-Variable -name USER_POLICY_PRIO_START -Scope Global
-Remove-Variable -name USER_POLICY_PRIO_END -Scope Global
+# Cleanup Script variables
+Remove-Variable -Name DEFAULT_CNI_VERSION -Scope Script
+Remove-Variable -name DEFAULT_PRIORITY -Scope Script
+Remove-Variable -name ACL_POLICY -Scope Script
+Remove-Variable -name USER_POLICY_PRIO_START -Scope Script
+Remove-Variable -name USER_POLICY_PRIO_END -Scope Script
