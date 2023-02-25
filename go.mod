@@ -15,5 +15,5 @@ require (
 	github.com/xeipuuv/gojsonschema v1.1.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20210309074719-68d13333faf2 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 )

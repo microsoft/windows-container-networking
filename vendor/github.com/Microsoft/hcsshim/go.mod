@@ -6,7 +6,7 @@ require (
 	github.com/Microsoft/go-winio v0.4.17-0.20210211115548-6eac466e5fa3
 	github.com/containerd/cgroups v0.0.0-20200824123100-0b889c03f102
 	github.com/containerd/console v1.0.1
-	github.com/containerd/containerd v1.6.1
+	github.com/containerd/containerd v1.5.0-beta.1
 	github.com/containerd/go-runc v0.0.0-20200220073739-7016d3ce2328
 	github.com/containerd/ttrpc v1.0.2
 	github.com/containerd/typeurl v1.0.1
