@@ -98,9 +98,8 @@ There are few system-defined default ACL policies. Users can configure additiona
 ```jsonc
 {
 	"Name": "azure-cni",
-	"Type": "L2Bridge",
+	"Type": "sdnbridge",
 	"Subnet": "192.168.0.0/24",
-	"LocalEndpoint": "192.168.0.1",
 	"InfraPrefix": "172.16.0.0/24",
 	"Gateway": "192.168.0.2",
 	"DnsServers": "8.8.8.8"
@@ -110,10 +109,9 @@ There are few system-defined default ACL policies. Users can configure additiona
 ```jsonc
 {
 	"Name": "azure-cni",
-	"Type": "L2Bridge",
+	"Type": "sdbridge",
     "Version": "0.3.0",
 	"Subnet": "192.168.0.0/24",
-	"LocalEndpoint": "192.168.0.1",
 	"InfraPrefix": "172.16.0.0/24",
 	"Gateway": "192.168.0.2",
 	"DnsServers": "8.8.8.8",
@@ -125,7 +123,7 @@ There are few system-defined default ACL policies. Users can configure additiona
 				"Action": "Block",
 				"Protocols": "6",
 				"Direction": "Out",
-				"Priority": 200
+				"Priority": 2001
 			}
 		},
 		{
@@ -152,7 +150,7 @@ VERBOSE: Generated CNI conf: .\cni.conf
 {
     "cniVersion":  "0.3.0",
     "name":  "azure-cni",
-    "type":  "L2Bridge",
+    "type":  "sdnbridge",
     "master":  "Ethernet",
     "capabilities":  {
                          "portMappings":  true,
@@ -187,7 +185,7 @@ VERBOSE: Generated CNI conf: .\cni.conf
                                              "Settings":  {
                                                               "Exceptions":  [
                                                                                  "192.168.0.0/24",
-                                                                                 "192.168.0.1"
+                                                                                 "10.0.0.5/32"
                                                                              ]
                                                           }
                                          }
@@ -207,7 +205,7 @@ VERBOSE: Generated CNI conf: .\cni.conf
                                "Value":  {
                                              "Type":  "ACL",
                                              "Settings":  {
-                                                              "Priority":  49,
+                                                              "Priority":  4999,
                                                               "Direction":  "Out",
                                                               "RemoteAddresses":  "168.63.129.16/32",
                                                               "Action":  "Block"
@@ -219,7 +217,7 @@ VERBOSE: Generated CNI conf: .\cni.conf
                                "Value":  {
                                              "Type":  "ACL",
                                              "Settings":  {
-                                                              "Priority":  50,
+                                                              "Priority":  5003,
                                                               "Direction":  "Out",
                                                               "RemoteAddresses":  "169.254.169.254/32",
                                                               "Action":  "Block"
@@ -236,7 +234,7 @@ VERBOSE: Generated CNI conf: .\cni.conf
                                                               "Action":  "Block",
                                                               "Protocols":  "6",
                                                               "Direction":  "Out",
-                                                              "Priority":  200
+                                                              "Priority":  2001
                                                           }
                                          }
                            },
