@@ -4,41 +4,31 @@ This script generates CNI config from a Base64 encoded JSON string
 
 Sample CNI Args:
 {
-	"Name": "azure-cni",
-	"Type": "L2Bridge",
-    "Version": "0.3.0",
-	"Subnet": "192.168.0.0/24",
-	"LocalEndpoint": "192.168.0.1",
-	"InfraPrefix": "172.16.0.0/24",
-	"Gateway": "192.168.0.2",
-	"DnsServers": "8.8.8.8",
-	"AdditionalPolicies": [{
-			"Type": "ACL",
-			"Settings": {
-				"RemoteAddresses": "192.168.0.122",
-				"Remoteports": "8080",
-				"Action": "Block",
-				"Protocols": "6",
-				"Direction": "Out",
-				"Priority": 200
-			}
-		},
-		{
-			"Type": "ACL",
-			"Settings": {
-				"Action": "Allow",
-				"Direction": "Out",
-				"Priority": 2000
-			}
-		},
-        {
-            "Type": "SDNRoute",
-            "Settings": {
-                "DestinationPrefix": "10.0.0.0/8",
-                "NeedEncap": true
-            }
-        }
-	]
+    "Name": "azure-cni",
+    "Type": "sdnbridge",
+    "Subnet": "192.168.0.0/24",
+    "Gateway": "192.168.0.2",
+    "InfraPrefix": "10.0.0.0/24",
+    "DnsServers": ["168.63.129.16"],
+    "AdditionalPolicies": [{
+            "Type": "ACL",
+            "Settings": {
+                "RemoteAddresses": "192.168.0.0/24",
+                "Action": "Allow",
+                "Direction": "Out",
+                "Priority": 3004
+            }
+        },
+        {
+            "Type": "ACL",
+            "Settings": {
+                "RemoteAddresses": "10.0.0.0/24",
+                "Action": "Allow",
+                "Direction": "Out",
+                "Priority": 3005
+            }
+        }
+    ]
 }
 
 Validate the json using JSON Lint (https://jsonlint.com/)
@@ -46,7 +36,7 @@ Validate the json using JSON Lint (https://jsonlint.com/)
 Encode the JSON string with ASCII as the destination character set (https://www.base64encode.org/)
 
 Base64 Endoded string for above:
-ew0KCSJOYW1lIjogImF6dXJlLWNuaSIsDQoJIlR5cGUiOiAiTDJCcmlkZ2UiLA0KICAgICJWZXJzaW9uIjogIjAuMy4wIiwNCgkiU3VibmV0IjogIjE5Mi4xNjguMC4wLzI0IiwNCgkiTG9jYWxFbmRwb2ludCI6ICIxOTIuMTY4LjAuMSIsDQoJIkluZnJhUHJlZml4IjogIjE3Mi4xNi4wLjAvMjQiLA0KCSJHYXRld2F5IjogIjE5Mi4xNjguMC4yIiwNCgkiRG5zU2VydmVycyI6ICI4LjguOC44IiwNCgkiQWRkaXRpb25hbFBvbGljaWVzIjogW3sNCgkJCSJUeXBlIjogIkFDTCIsDQoJCQkiU2V0dGluZ3MiOiB7DQoJCQkJIlJlbW90ZUFkZHJlc3NlcyI6ICIxOTIuMTY4LjAuMTIyIiwNCgkJCQkiUmVtb3RlcG9ydHMiOiAiODA4MCIsDQoJCQkJIkFjdGlvbiI6ICJCbG9jayIsDQoJCQkJIlByb3RvY29scyI6ICI2IiwNCgkJCQkiRGlyZWN0aW9uIjogIk91dCIsDQoJCQkJIlByaW9yaXR5IjogMjAwDQoJCQl9DQoJCX0sDQoJCXsNCgkJCSJUeXBlIjogIkFDTCIsDQoJCQkiU2V0dGluZ3MiOiB7DQoJCQkJIkFjdGlvbiI6ICJBbGxvdyIsDQoJCQkJIkRpcmVjdGlvbiI6ICJPdXQiLA0KCQkJCSJQcmlvcml0eSI6IDIwMDANCgkJCX0NCgkJfSwNCiAgICAgICAgew0KICAgICAgICAgICAgIlR5cGUiOiAiU0ROUm91dGUiLA0KICAgICAgICAgICAgIlNldHRpbmdzIjogew0KICAgICAgICAgICAgICAgICJEZXN0aW5hdGlvblByZWZpeCI6ICIxMC4wLjAuMC84IiwNCiAgICAgICAgICAgICAgICAiTmVlZEVuY2FwIjogdHJ1ZQ0KICAgICAgICAgICAgfQ0KICAgICAgICB9DQoJXQ0KfQ==
+ew0KICJOYW1lIjogImF6dXJlLWNuaSIsDQogIlR5cGUiOiAic2RuYnJpZGdlIiwNCiAiU3VibmV0IjogIjE5Mi4xNjguMC4wLzI0IiwNCiAiR2F0ZXdheSI6ICIxOTIuMTY4LjAuMiIsDQogIkluZnJhUHJlZml4IjogIjEwLjAuMC4wLzI0IiwNCiAiRG5zU2VydmVycyI6IFsiMTY4LjYzLjEyOS4xNiJdLA0KICJBZGRpdGlvbmFsUG9saWNpZXMiOiBbew0KICJUeXBlIjogIkFDTCIsDQogIlNldHRpbmdzIjogew0KICJSZW1vdGVBZGRyZXNzZXMiOiAiMTkyLjE2OC4wLjAvMjQiLA0KICJBY3Rpb24iOiAiQWxsb3ciLA0KICJEaXJlY3Rpb24iOiAiT3V0IiwNCiAiUHJpb3JpdHkiOiAzMDA0DQogfQ0KIH0sDQogew0KICJUeXBlIjogIkFDTCIsDQogIlNldHRpbmdzIjogew0KICJSZW1vdGVBZGRyZXNzZXMiOiAiMTAuMC4wLjAvMjQiLA0KICJBY3Rpb24iOiAiQWxsb3ciLA0KICJEaXJlY3Rpb24iOiAiT3V0IiwNCiAiUHJpb3JpdHkiOiAzMDA1DQogfQ0KIH0NCiBdDQp9
 
 Report issues: containernetdev@microsoft.com
 
@@ -63,8 +53,8 @@ param (
 set-variable -name DEFAULT_CNI_VERSION -value ([string]"0.2.0") -Scope Script
 set-variable -name ACL_POLICY -value ([string]"ACL") -Scope Script
 set-variable -name DEFAULT_PRIORITY -value ([string]"-1") -Scope Script # Used to help in sorting the policies based on priority even if priority is not specified by user
-set-variable -name USER_POLICY_PRIO_START -value ([int]100) -Scope Script
-set-variable -name USER_POLICY_PRIO_END -value ([int]4096) -Scope Script
+set-variable -name USER_POLICY_PRIO_START -value ([int]3000) -Scope Script
+set-variable -name USER_POLICY_PRIO_END -value ([int]8000) -Scope Script
 
 enum OptionalKeysFlag {
     NoOptKeys = 1
@@ -96,9 +86,9 @@ class CniArgs {
     [string] $Type
     [string] $Version
     [string] $Subnet
-    [string] $LocalEndpoint
-    [string] $InfraPrefix
     [string] $Gateway
+    [string] $InfraPrefix
+    [string] $ManagementIp
     [string[]] $DnsServers
     [Policy[]] $AdditionalPolicies
     [bool] $SkipDefaultPolicies # Undocumented parameter to disable system policies
@@ -108,9 +98,9 @@ class CniArgs {
         $this.Name = $cniArgs.Name
         $this.Type = $cniArgs.Type
         $this.Subnet = $cniArgs.Subnet
-        $this.LocalEndpoint = $cniArgs.LocalEndpoint
-        $this.InfraPrefix = $cniArgs.InfraPrefix
         $this.Gateway = $cniArgs.Gateway
+        $this.ManagementIp = $cniArgs.ManagementIp
+        $this.InfraPrefix = $cniArgs.InfraPrefix
         $this.DnsServers = $cniArgs.DnsServers
 
         # Optional Parameters
@@ -118,12 +108,20 @@ class CniArgs {
         if ($cniArgs.psobject.Properties.name.Contains('SkipDefaultPolicies')) {$this.SkipDefaultPolicies = $true} else {$this.SkipDefaultPolicies = $false}
         if ($cniArgs.psobject.Properties.name.Contains('AdditionalPolicies')) {
             for($i=0; $i -lt $cniArgs.AdditionalPolicies.length; $i++) {
-                # Following constraints are ensured for policy priorities
+                # Following constraints are ensured for policy priorities (HNS supports priorities between 100-65500 for ACLs)
                 # 1. System defined policies have 2 bands:
-                #    a. Non-negotiable: 1-99, cannot be overridden by user-defined policies
-                #    b. Negotiable: > 4096, van be overridden by user-defined policies
-                # 2. User defined policies should have priorities between 100 - 4096
+                #    a. Non-negotiable: 2000-3000, cannot be overridden by user-defined policies
+                #    b. Negotiable: > 8000, van be overridden by user-defined policies
+                # 2. User defined policies should have priorities between 3001 - 8000
                 # 3. Policies should be populated in ascending order of priorities to help in debugging (handled in populate APIs)
+                #    |--------------------------------------------|
+                #    |                Priority Bands              |
+                #    |----------------|--------------|------------|
+                #    |    2000-2999   |   3000-8000  |   >8000    |
+                #    |----------------|--------------|------------|
+                #    | Non-negotiable | User-defined | Negotiable |  
+                #    |----------------|--------------|------------|
+                #
 
                 if($cniArgs.AdditionalPolicies[$i].Type -eq $script:ACL_POLICY) {
                     $userPolicySetting = $cniArgs.AdditionalPolicies[$i].Settings
@@ -229,7 +227,7 @@ class CniConf {
         }
 
         # Populate user defined policies
-        Write-Verbose -Message ("Number of additional policies: {0}" -f $this.Args.AdditionalPolicies.length)
+        Write-Verbose -Message ("Number of policies: {0}" -f $this.Args.AdditionalPolicies.length)
         if ($this.Args.AdditionalPolicies.length -gt 0) {
             $this.Args.AdditionalPolicies = $this.Args.AdditionalPolicies |  Sort-Object -Property @{e={$_.Settings.Priority}}
             $this.CniBase.Add('AdditionalArgs', $this.PopulatePolicies())
@@ -239,24 +237,24 @@ class CniConf {
     [PSCustomObject[]] GetDefaultPolicies() {
         $defaultPolicies = @()
         # Default PolicyList
-        <#1#>$defaultPolicies += [Policy](@{Type='OutBoundNAT';Settings=@{Exceptions=@($this.Args.Subnet, $this.Args.LocalEndpoint)}} | ConvertTo-Json | ConvertFrom-Json)
-        <#2#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.InfraPrefix;Action='Block';Direction='Out';Priority=6001}} | ConvertTo-Json | ConvertFrom-Json)
-        <#3#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.Subnet;Action='Block';Direction='Out';Priority=6002}} | ConvertTo-Json | ConvertFrom-Json)
-        <#4#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{Action='Allow';Direction='Out';Priority=6003}} | ConvertTo-Json | ConvertFrom-Json)
+        <#1#>$defaultPolicies += [Policy](@{Type='OutBoundNAT';Settings=@{Exceptions=@($this.Args.Subnet, ('{0}/32' -f $this.Args.ManagementIp))}} | ConvertTo-Json | ConvertFrom-Json)
+        <#2#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.InfraPrefix;Action='Block';Direction='Out';Priority=9001}} | ConvertTo-Json | ConvertFrom-Json)
+        <#3#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses=$this.Args.Subnet;Action='Block';Direction='Out';Priority=9002}} | ConvertTo-Json | ConvertFrom-Json)
+        <#4#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{Action='Allow';Direction='Out';Priority=9003}} | ConvertTo-Json | ConvertFrom-Json)
         # WireServer ACL policies
-        <#5#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';RemotePorts='53';Action='Allow';Protocols='6';Direction='Out';Priority=47}} | ConvertTo-Json | ConvertFrom-Json)
-        <#6#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';RemotePorts='53';Action='Allow';Protocols='17';Direction='Out';Priority=48}} | ConvertTo-Json | ConvertFrom-Json)
-        <#7#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';Action='Block';Direction='Out';Priority=49}} | ConvertTo-Json | ConvertFrom-Json)
-        <#8#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='169.254.169.254/32';Action='Block';Direction='Out';Priority=50}} | ConvertTo-Json | ConvertFrom-Json)
+        <#5#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';RemotePorts='53';Action='Allow';Protocols='6';Direction='Out';Priority=2051}} | ConvertTo-Json | ConvertFrom-Json)
+        <#6#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';RemotePorts='53';Action='Allow';Protocols='17';Direction='Out';Priority=2052}} | ConvertTo-Json | ConvertFrom-Json)
+        <#7#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='168.63.129.16/32';Action='Block';Direction='Out';Priority=2053}} | ConvertTo-Json | ConvertFrom-Json)
+        <#8#>$defaultPolicies += [Policy](@{Type='ACL';Settings=@{RemoteAddresses='169.254.169.254/32';Action='Block';Direction='Out';Priority=2054}} | ConvertTo-Json | ConvertFrom-Json)
 
         for($i=0; $i -lt $defaultPolicies.length; $i++) {
-            # Ensure system policy priorities are either 1-100 (non-negotiable band) or >4096 (negotiable band)
+            # Ensure system policy priorities are either 2000-3000 (non-negotiable band) or >8000 (negotiable band)
             $policySetting = $defaultPolicies[$i].Settings
             if($defaultPolicies[$i].Type -eq $script:ACL_POLICY) {
                 # Assumption: System ACL policies are always configured with priorities.
                 if( -not ((($policySetting.Priority -gt '0') -and ($policySetting.Priority -lt $script:USER_POLICY_PRIO_START)) -or ($policySetting.Priority -gt $script:USER_POLICY_PRIO_END))) {
-                    Write-Verbose -Message ("System ACL policies should have priority either between 1 - 99 or above {0}. Invalid policy: {1}" -f $script:USER_POLICY_PRIO_END, $policySetting)
-                    throw "System ACL policies should have priority either between 1-99 or above 4096. Invalid policy: $policySetting"
+                    Write-Verbose -Message ("System ACL policies should have priority either between 2000 - 2999 or above {0}. Invalid policy: {1}" -f $script:USER_POLICY_PRIO_END, $policySetting)
+                    throw "System ACL policies should have priority either between 2000-2999 or above 8000. Invalid policy: $policySetting"
                 }
             } else{
                 # Use DEFAULT_PRIORITY for policies whose priorities need not be specified
