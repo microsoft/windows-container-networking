@@ -38,6 +38,7 @@ sdnbridge: $(OUTPUTDIR)/sdnbridge
 sdnoverlay: $(OUTPUTDIR)/sdnoverlay
 nat: $(OUTPUTDIR)/nat
 all: sdnbridge sdnoverlay nat
+	cp scripts/autogencniconf/generateCNIConfig.ps1 out/
 
 # Containerized Build Environment
 .PHONY: dev
