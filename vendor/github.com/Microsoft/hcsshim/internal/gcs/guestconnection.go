@@ -15,10 +15,10 @@ import (
 	"github.com/Microsoft/go-winio"
 	"github.com/Microsoft/go-winio/pkg/guid"
 	"github.com/Microsoft/hcsshim/internal/cow"
+	"github.com/Microsoft/hcsshim/internal/hcs/schema1"
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/logfields"
 	"github.com/Microsoft/hcsshim/internal/oc"
-	"github.com/Microsoft/hcsshim/internal/schema1"
 	"github.com/sirupsen/logrus"
 	"go.opencensus.io/trace"
 )
@@ -70,7 +70,7 @@ func (gcc *GuestConnectionConfig) Connect(ctx context.Context, isColdStart bool)
 	gc.brdg = newBridge(gcc.Conn, gc.notify, gcc.Log)
 	gc.brdg.Start()
 	go func() {
-		gc.brdg.Wait()
+		_ = gc.brdg.Wait()
 		gc.clearNotifies()
 	}()
 	err = gc.connect(ctx, isColdStart)

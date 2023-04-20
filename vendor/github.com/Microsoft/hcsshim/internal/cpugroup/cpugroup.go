@@ -3,12 +3,12 @@ package cpugroup
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/Microsoft/hcsshim/internal/hcs"
-	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
+	hcsschema "github.com/Microsoft/hcsshim/internal/hcs/schema2"
+	"github.com/pkg/errors"
 )
 
 const NullGroupID = "00000000-0000-0000-0000-000000000000"
@@ -48,12 +48,13 @@ func Create(ctx context.Context, id string, logicalProcessors []uint32) error {
 		LogicalProcessorCount: uint32(len(logicalProcessors)),
 	}
 	if err := modifyCPUGroupRequest(ctx, operation, details); err != nil {
-		return fmt.Errorf("failed to make cpugroups CreateGroup request for details %+v with: %s", details, err)
+		return errors.Wrapf(err, "failed to make cpugroups CreateGroup request for details %+v", details)
 	}
 	return nil
 }
 
 // getCPUGroupConfig finds the cpugroup config information for group with `id`
+//nolint:unused
 func getCPUGroupConfig(ctx context.Context, id string) (*hcsschema.CpuGroupConfig, error) {
 	query := hcsschema.PropertyQuery{
 		PropertyTypes: []hcsschema.PropertyType{hcsschema.PTCPUGroup},
@@ -64,11 +65,11 @@ func getCPUGroupConfig(ctx context.Context, id string) (*hcsschema.CpuGroupConfi
 	}
 	groupConfigs := &hcsschema.CpuGroupConfigurations{}
 	if err := json.Unmarshal(cpuGroupsPresent.Properties[0], groupConfigs); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal host cpugroups: %v", err)
+		return nil, errors.Wrap(err, "failed to unmarshal host cpugroups")
 	}
 
 	for _, c := range groupConfigs.CpuGroups {
-		if strings.ToLower(c.GroupId) == strings.ToLower(id) {
+		if strings.EqualFold(c.GroupId, id) {
 			return &c, nil
 		}
 	}

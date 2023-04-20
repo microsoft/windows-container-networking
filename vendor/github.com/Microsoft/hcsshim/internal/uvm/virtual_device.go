@@ -6,8 +6,9 @@ import (
 
 	"github.com/Microsoft/go-winio/pkg/guid"
 	"github.com/Microsoft/hcsshim/internal/guestrequest"
+	"github.com/Microsoft/hcsshim/internal/hcs/resourcepaths"
+	hcsschema "github.com/Microsoft/hcsshim/internal/hcs/schema2"
 	"github.com/Microsoft/hcsshim/internal/requesttype"
-	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 )
 
 const (
@@ -92,9 +93,10 @@ func (uvm *UtilityVM) AssignDevice(ctx context.Context, deviceID string) (*VPCID
 	}
 
 	request := &hcsschema.ModifySettingRequest{
-		ResourcePath: fmt.Sprintf(virtualPciResourceFormat, vmBusGUID),
+		ResourcePath: fmt.Sprintf(resourcepaths.VirtualPCIResourceFormat, vmBusGUID),
 		RequestType:  requesttype.Add,
-		Settings:     targetDevice}
+		Settings:     targetDevice,
+	}
 
 	// WCOW (when supported) does not require a guest request as part of the
 	// device assignment
@@ -140,7 +142,7 @@ func (uvm *UtilityVM) removeDevice(ctx context.Context, deviceInstanceID string)
 	if vpci.refCount == 0 {
 		delete(uvm.vpciDevices, deviceInstanceID)
 		return uvm.modify(ctx, &hcsschema.ModifySettingRequest{
-			ResourcePath: fmt.Sprintf(virtualPciResourceFormat, vpci.VMBusGUID),
+			ResourcePath: fmt.Sprintf(resourcepaths.VirtualPCIResourceFormat, vpci.VMBusGUID),
 			RequestType:  requesttype.Remove,
 		})
 	}

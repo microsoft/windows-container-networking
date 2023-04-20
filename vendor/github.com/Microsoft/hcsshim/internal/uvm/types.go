@@ -9,8 +9,9 @@ import (
 	"github.com/Microsoft/go-winio/pkg/guid"
 	"github.com/Microsoft/hcsshim/internal/gcs"
 	"github.com/Microsoft/hcsshim/internal/hcs"
+	"github.com/Microsoft/hcsshim/internal/hcs/schema1"
 	"github.com/Microsoft/hcsshim/internal/hns"
-	"github.com/Microsoft/hcsshim/internal/schema1"
+	"github.com/Microsoft/hcsshim/internal/ncproxyttrpc"
 	"golang.org/x/sys/windows"
 )
 
@@ -29,7 +30,7 @@ type vpmemInfo struct {
 }
 
 type nicInfo struct {
-	ID       guid.GUID
+	ID       string
 	Endpoint *hns.HNSEndpoint
 }
 
@@ -110,12 +111,9 @@ type UtilityVM struct {
 	vmmemOnce sync.Once
 
 	// mountCounter is the number of mounts that have been added to the UVM
-	// This is used in generating unique mount path inside UVM for every mount.
+	// This is used in generating a unique mount path inside the UVM for every mount.
 	// Access to this variable should be done atomically.
 	mountCounter uint64
-
-	// cpuGroupID is the ID of the cpugroup on the host that this UVM is assigned to
-	cpuGroupID string
 
 	// specifies if this UVM is created to be saved as a template
 	IsTemplate bool
@@ -130,4 +128,11 @@ type UtilityVM struct {
 	// The CreateOpts used to create this uvm. These can be either of type
 	// uvm.OptionsLCOW or uvm.OptionsWCOW
 	createOpts interface{}
+	// Network config proxy client. If nil then this wasn't requested and the
+	// uvms network will be configured locally.
+	ncProxyClient ncproxyttrpc.NetworkConfigProxyService
+
+	// networkSetup handles the logic for setting up and tearing down any network configuration
+	// for the Utility VM.
+	networkSetup NetworkSetup
 }
