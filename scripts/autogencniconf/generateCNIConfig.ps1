@@ -114,13 +114,13 @@ class CniArgs {
                 #    b. Negotiable: > 8000, van be overridden by user-defined policies
                 # 2. User defined policies should have priorities between 3001 - 8000
                 # 3. Policies should be populated in ascending order of priorities to help in debugging (handled in populate APIs)
-                #    |--------------------------------------------|
-                #    |                Priority Bands              |
-                #    |----------------|--------------|------------|
-                #    |    2000-2999   |   3000-8000  |   >8000    |
-                #    |----------------|--------------|------------|
-                #    | Non-negotiable | User-defined | Negotiable |  
-                #    |----------------|--------------|------------|
+                #    |-------------------------------------------------|
+                #    |                Priority Bands                   |
+                #    |----------------|--------------|-----------------|
+                #    |    2000-2999   |   3000-8000  |    8001-65500   |
+                #    |----------------|--------------|-----------------|
+                #    | Non-negotiable | User-defined |    Negotiable   |
+                #    |----------------|--------------|-----------------|
                 #
 
                 if($cniArgs.AdditionalPolicies[$i].Type -eq $script:ACL_POLICY) {
@@ -146,6 +146,7 @@ class CniConf {
     [CniArgs] $Args
 
     CniConf([System.Object] $cniArgs) {
+        $this.EnsureMandatoryParametersPresent($cniArgs)
         $this.CniBase = [System.Collections.Specialized.OrderedDictionary]::new()
         # Initialize arguments
         $this.Args = [CniArgs]::new($cniArgs)
@@ -153,6 +154,20 @@ class CniConf {
         $this.OptKeyParams = $this.OptKeyParams -bor [OptionalKeysFlag]::Capabilities -bor [OptionalKeysFlag]::Master
         # Set wellknown optional fields to be populated
         $this.WKOptKeyParams = $this.WKOptKeyParams -bor [WKOptionalKeysFlag]::Dns -bor [WKOptionalKeysFlag]::Ipam
+    }
+
+    EnsureMandatoryParametersPresent([System.Object] $cniArgs) {
+        if ((-not $cniArgs.psobject.Properties.name.Contains('Name')) -or
+            (-not $cniArgs.psobject.Properties.name.Contains('Type')) -or
+            (-not $cniArgs.psobject.Properties.name.Contains('Subnet')) -or
+            (-not $cniArgs.psobject.Properties.name.Contains('Gateway')) -or
+            (-not $cniArgs.psobject.Properties.name.Contains('ManagementIp')) -or
+            (-not $cniArgs.psobject.Properties.name.Contains('InfraPrefix')) -or
+            (-not $cniArgs.psobject.Properties.name.Contains('DnsServers'))
+        ) {
+            Write-Verbose -Message ("CniArgs is missing mandatory parameters. Please ensure these fields are populated: Name, Type, Subnet, Gateway, ManagementIp, InfraPrefix, DnsServers")
+            throw "CniArgs is missing mandatory parameters. Please ensure these fields are populated: Name, Type, Subnet, Gateway, ManagementIp, InfraPrefix, DnsServers"
+        }
     }
 
     Populate() {
@@ -292,7 +307,11 @@ class CniConf {
 ######### Main #########
 [string] $DecodedText = [System.Text.Encoding]::ascii.GetString([System.Convert]::FromBase64String($CniArgs))
 Write-Verbose -Message ("Cni Args: {0}`n" -f $DecodedText)
-[System.Object] $cniArgs = $DecodedText | ConvertFrom-Json
+try {
+    [System.Object] $cniArgs = $DecodedText | ConvertFrom-Json
+} catch {
+    throw "Invalid JSON string passed as input. CniArgs: $DecodedText"
+}
 $cniConfObj = [CniConf]::new($cniArgs)
 $cniConfObj.Populate() 
 $cniConfObj.Get() | Out-File -FilePath $CniConfPath -Encoding ascii

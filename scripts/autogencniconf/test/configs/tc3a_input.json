@@ -1,0 +1,28 @@
+{
+    "Name": "azure-cni",
+    "Type": "sdnbridge",
+    "Subnet": "192.168.0.0/24",
+    "Gateway": "192.168.0.2",
+    "InfraPrefix": "10.0.0.0/24",
+    "DnsServers": ["168.63.129.16"],
+    "ManagementIp": "10.0.0.10",
+    "SkipDefaultPolicies": "true",
+    "AdditionalPolicies": [{
+        "Type": "ACL",
+        "Settings": {
+            "RemoteAddresses": "192.168.0.0/24",
+            "Action": "Allow",
+            "Direction": "Out",
+            "Priority": 3004
+        }
+    },
+    {
+        "Type": "ACL",
+        "Settings": {
+            "RemoteAddresses": "10.0.0.0/24",
+            "Action": "Allow",
+            "Direction": "Out",
+            "Priority": 3005
+        }
+    }]
+}
