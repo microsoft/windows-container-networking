@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/Microsoft/hcsshim/internal/guestrequest"
+	hcsschema "github.com/Microsoft/hcsshim/internal/hcs/schema2"
 	"github.com/Microsoft/hcsshim/internal/requesttype"
-	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 )
 
 // Share shares in file(s) from `reqHostPath` on the host machine to `reqUVMPath` inside the UVM.
@@ -22,7 +22,7 @@ func (uvm *UtilityVM) Share(ctx context.Context, reqHostPath, reqUVMPath string,
 		}
 		defer func() {
 			if err != nil {
-				vsmbShare.Release(ctx)
+				_ = vsmbShare.Release(ctx)
 			}
 		}()
 
@@ -64,7 +64,7 @@ func (uvm *UtilityVM) Share(ctx context.Context, reqHostPath, reqUVMPath string,
 		}
 		defer func() {
 			if err != nil {
-				plan9Share.Release(ctx)
+				_ = plan9Share.Release(ctx)
 			}
 		}()
 	}

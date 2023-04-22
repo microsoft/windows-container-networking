@@ -15,11 +15,11 @@ import (
 
 	"github.com/Microsoft/hcsshim/internal/gcs"
 	"github.com/Microsoft/hcsshim/internal/guestrequest"
+	"github.com/Microsoft/hcsshim/internal/hcs/schema1"
+	hcsschema "github.com/Microsoft/hcsshim/internal/hcs/schema2"
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/logfields"
 	"github.com/Microsoft/hcsshim/internal/requesttype"
-	"github.com/Microsoft/hcsshim/internal/schema1"
-	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -153,7 +153,9 @@ func (uvm *UtilityVM) configureHvSocketForGCS(ctx context.Context) (err error) {
 func (uvm *UtilityVM) Start(ctx context.Context) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	g, gctx := errgroup.WithContext(ctx)
-	defer g.Wait()
+	defer func() {
+		_ = g.Wait()
+	}()
 	defer cancel()
 
 	// Prepare to provide entropy to the init process in the background. This
@@ -198,17 +200,10 @@ func (uvm *UtilityVM) Start(ctx context.Context) (err error) {
 	}
 	defer func() {
 		if err != nil {
-			uvm.hcsSystem.Terminate(ctx)
-			uvm.hcsSystem.Wait()
+			_ = uvm.hcsSystem.Terminate(ctx)
+			_ = uvm.hcsSystem.Wait()
 		}
 	}()
-
-	// assign the VM to the cpugroup specified, if any
-	if uvm.cpuGroupID != "" {
-		if err := uvm.SetCPUGroup(ctx, uvm.cpuGroupID); err != nil {
-			return err
-		}
-	}
 
 	// Start waiting on the utility VM.
 	uvm.exitCh = make(chan struct{})
