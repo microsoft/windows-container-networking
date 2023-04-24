@@ -10,9 +10,10 @@ import (
 	"strconv"
 	"unsafe"
 
+	"github.com/Microsoft/hcsshim/internal/hcs/resourcepaths"
+	hcsschema "github.com/Microsoft/hcsshim/internal/hcs/schema2"
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/requesttype"
-	hcsschema "github.com/Microsoft/hcsshim/internal/schema2"
 	"github.com/Microsoft/hcsshim/internal/winapi"
 	"github.com/Microsoft/hcsshim/osversion"
 	"github.com/sirupsen/logrus"
@@ -79,7 +80,6 @@ func (uvm *UtilityVM) SetSaveableVSMBOptions(opts *hcsschema.VirtualSmbShareOpti
 	opts.NoLocks = true
 	opts.PseudoDirnotify = true
 	opts.NoDirectmap = true
-	return
 }
 
 // findVSMBShare finds a share by `hostPath`. If not found returns `ErrNotAttached`.
@@ -135,14 +135,16 @@ func openHostPath(path string) (windows.Handle, error) {
 // To work around this, we attempt to query for FileIdInfo ourselves if on an affected build. If
 // the query fails, we override the specified options to force no direct map to be used.
 func forceNoDirectMap(path string) (bool, error) {
-	if ver := osversion.Get().Build; ver < osversion.V19H1 || ver > osversion.V20H2 {
+	if ver := osversion.Build(); ver < osversion.V19H1 || ver > osversion.V20H2 {
 		return false, nil
 	}
 	h, err := openHostPath(path)
 	if err != nil {
 		return false, err
 	}
-	defer windows.CloseHandle(h)
+	defer func() {
+		_ = windows.CloseHandle(h)
+	}()
 	var info winapi.FILE_ID_INFO
 	// We check for any error, rather than just ERROR_INVALID_PARAMETER. It seems better to also
 	// fall back if e.g. some other backing filesystem is used which returns a different error.
@@ -231,7 +233,7 @@ func (uvm *UtilityVM) AddVSMB(ctx context.Context, hostPath string, options *hcs
 				Path:         hostPath,
 				AllowedFiles: newAllowedFiles,
 			},
-			ResourcePath: vSmbShareResourcePath,
+			ResourcePath: resourcepaths.VSMBShareResourcePath,
 		}
 		if err := uvm.modify(ctx, modification); err != nil {
 			return nil, err
@@ -279,7 +281,7 @@ func (uvm *UtilityVM) RemoveVSMB(ctx context.Context, hostPath string, readOnly 
 	modification := &hcsschema.ModifySettingRequest{
 		RequestType:  requesttype.Remove,
 		Settings:     hcsschema.VirtualSmbShare{Name: share.name},
-		ResourcePath: vSmbShareResourcePath,
+		ResourcePath: resourcepaths.VSMBShareResourcePath,
 	}
 	if err := uvm.modify(ctx, modification); err != nil {
 		return fmt.Errorf("failed to remove vsmb share %s from %s: %+v: %s", hostPath, uvm.id, modification, err)
