@@ -14,7 +14,7 @@ import (
 	network "github.com/Microsoft/windows-container-networking/network"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	cniTypesCurr "github.com/containernetworking/cni/pkg/types/current"
+	cniTypesCurr "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/sirupsen/logrus"
 )
 
@@ -375,7 +375,6 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 		ip.InterfaceIndex = 0
 
 		cIP := cniTypesCurr.IPConfig{
-			Version: ip.Version,
 			Address: net.IPNet{
 				IP:   ip.Address.IP,
 				Mask: ip.Address.Mask},
@@ -392,7 +391,6 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 		ip4.InterfaceIndex = 0
 
 		cIP4 := cniTypesCurr.IPConfig{
-			Version: ip4.Version,
 			Address: net.IPNet{
 				IP:   ip4.Address.IP,
 				Mask: ip4.Address.Mask},
@@ -407,7 +405,6 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 			ip6.InterfaceIndex = 0
 
 			cIP6 := cniTypesCurr.IPConfig{
-				Version: ip6.Version,
 				Address: net.IPNet{
 					IP:   ip6.Address.IP,
 					Mask: ip6.Address.Mask},
