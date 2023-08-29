@@ -10,7 +10,25 @@ This repo contains plugins meant for testing/development of latest windows featu
 * `sdnbridge`
 
 ## Releases
-Currently you must build the binaries yourself (see below)
+Create a checkpoint for a release using tags
+
+`git tag -a v0.3.1 -m "includes intent-based cni config generation script"`
+
+`git push origin v0.3.1`
+
+
+
+The below make command creates a sha signed package under the release directory.
+
+`make release`
+
+
+These packages need to be uploaded manually while publishing a release from GitHub portal.
+
+To publish a release, go to the [Releases](https://github.com/microsoft/windows-container-networking/releases) section in the portal, and click on 'Draft a new release'. 
+
+Choose the tag created, and upload the packages. Make sure to add context about the release and list down the major changes. Hit 'Publish Release' and you are done.
+
 
 * ToDo: Automated Release
 
