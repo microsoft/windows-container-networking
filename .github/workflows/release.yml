@@ -1,0 +1,125 @@
+# Workflow intended to crossbuild binary artifacts and create a new release.
+
+on:
+  push:
+    branches:
+      - "release/**"
+    tags:
+      - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
+
+name: Release
+
+env:
+  GO_VERSION: "1.21.0"
+  BINARY_ARTIFACT_NAME: "windows-cni-binaries"
+  RELEASE_NOTES_ARTIFACT_NAME: "windows-cni-release-notes"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Crossbuild Binary Release
+    runs-on: ubuntu-22.04
+
+    outputs:
+      version: ${{ steps.getrelease.outputs.version }}
+      binaries_artifact: ${{ env.BINARY_ARTIFACT_NAME }}-${{ steps.getrelease.outputs.version }}
+      release_notes_artifact: ${{ env.RELEASE_NOTES_ARTIFACT_NAME}}-${{ steps.getrelease.outputs.version }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+          path: src/github.com/Microsoft/windows-container-networking
+
+      - name: Get Release Version
+        id: getrelease
+        run: |
+          ref=${{ github.ref }}
+          version="${ref#refs/tags/v}"
+          # If we can't extract the version from the tag, use the commit ID.
+          if [ "$ref" = "$version" ]; then
+            version=$(git show -s --format=%H | cut -c -12)
+          fi
+          echo "Determined version: ${version}"
+          echo "version=${version}" >> $GITHUB_OUTPUT
+        working-directory: src/github.com/Microsoft/windows-container-networking
+
+      - name: Check Tag Signed
+        run: |
+          releasever="${{ steps.getrelease.outputs.version }}"
+          TAGCHECK=$(git tag -v ${releasever} 2>&1 >/dev/null) ||
+          echo "${TAGCHECK}" | grep -q "error" && {
+              echo "::warning::tag ${releasever} is not a signed tag!"
+          } || {
+              echo "Tag ${releasever} is signed."
+          }
+        working-directory: src/github.com/Microsoft/windows-container-networking
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Make Binary Release
+        shell: bash
+        run: |
+          make release "VERSION=${{ steps.getrelease.outputs.version }}"
+        working-directory: src/github.com/Microsoft/windows-container-networking
+
+      - name: Make Release Notes
+        run: |
+          version="${{ steps.getrelease.outputs.version }}"
+          git tag -l ${version#refs/tags/} -n20000 | tail -n +3 | cut -c 5- >release-notes.md
+        working-directory: src/github.com/Microsoft/windows-container-networking
+
+      - name: Upload Release Notes
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.RELEASE_NOTES_ARTIFACT_NAME }}-${{ steps.getrelease.outputs.version }}
+          path: src/github.com/Microsoft/windows-container-networking/release-notes.md
+
+      - name: Upload Binary Release
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.BINARY_ARTIFACT_NAME }}-${{ steps.getrelease.outputs.version }}
+          path: src/github.com/Microsoft/windows-container-networking/release/*
+
+  ci:
+    name: CI
+    # NOTE(aznashwan, Sep 4th 2023): GitHub actions do not currently support referencing
+    # or evaluating `env` variables in the `uses` clause, but this will
+    # ideally be added in the future in which case the hardcoded reference to the
+    # upstream CNI repository should be replaced with the following to
+    # potentially allow contributors to enable tests on forks as well:
+    # uses: "${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref_name }}"
+    uses: "Microsoft/windows-container-networking/.github/workflows/ci.yml@master"
+
+  release:
+    name: Create CNI Binaries Release
+    needs: [build, ci]
+    # NOTE: only release on pushes to release tags:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Download Release Notes and Build
+        uses: actions/download-artifact@v3
+        with:
+          path: builds
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_unmatched_files: true
+          name: windows-cni ${{ needs.build.outputs.version }}
+          draft: false
+          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          body_path: ./builds/${{ needs.build.outputs.release_notes_artifact }}/release-notes.md
+          files: |
+            builds/${{ needs.build.outputs.binaries_artifact }}/*

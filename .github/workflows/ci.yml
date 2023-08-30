@@ -1,0 +1,65 @@
+# Workflow intended to run CNI plugin static QA and tests on GitHub-hosted Windows runners.
+
+name: CI
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+env:
+  GO_VERSION: 1.21.0
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Run Checks
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # NOTE(aznashwan): this will permit the tests to finish on all OSes.
+      fail-fast: false
+      matrix:
+        os: ["windows-2019", "windows-2022"]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+          path: src/github.com/Microsoft/windows-container-networking
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Lint
+        # TODO(aznashwan): codebase currently has linter issues to be solved in a later PR.
+        continue-on-error: true
+        uses: golangci/golangci-lint-action@v3
+        with:
+          working-directory: src/github.com/Microsoft/windows-container-networking
+          version: v1.52.2
+          skip-cache: true
+          args: --timeout=8m
+
+      - name: Install runhcs
+        shell: bash
+        run: |
+          HCSSHIM_VER=$(sed -E -n "s|\t*github.com/Microsoft/hcsshim (.*)|\1|p" go.mod)
+          git clone https://github.com/Microsoft/hcsshim -b "$HCSSHIM_VER" /tmp/hcsshim
+          cd /tmp/hcsshim
+          go install ./...
+        working-directory: src/github.com/Microsoft/windows-container-networking
+
+      - name: Test
+        run: |
+          mingw32-make.exe test
+        working-directory: src/github.com/Microsoft/windows-container-networking
