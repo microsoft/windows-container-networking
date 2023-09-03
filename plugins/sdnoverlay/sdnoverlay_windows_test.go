@@ -2,10 +2,15 @@ package main_test
 
 import (
 	"encoding/json"
-	"github.com/Microsoft/hcsshim/hcn"
-	"github.com/Microsoft/windows-container-networking/test/utilities"
+	"os"
 	"testing"
+
+	"github.com/Microsoft/hcsshim/hcn"
+	util "github.com/Microsoft/windows-container-networking/test/utilities"
 )
+
+var testDualStack bool
+var imageToUse string
 
 func GetVsidPol() []json.RawMessage {
 	vsidSetting := hcn.VsidPolicySetting{
@@ -31,7 +36,9 @@ func CreateOverlayTestNetwork() *hcn.HostComputeNetwork {
 
 func TestOverlayCmdAdd(t *testing.T) {
 	t.Skip("Overlay test is disabled for now.")
+	testDualStack = (os.Getenv("TestDualStack") == "1")
+	imageToUse = os.Getenv("ImageToUse")
 	testNetwork := CreateOverlayTestNetwork()
-	pt := util.MakeTestStruct(t, testNetwork, "sdnoverlay", true, false, "")
+	pt := util.MakeTestStruct(t, testNetwork, "sdnoverlay", true, false, "", testDualStack, imageToUse)
 	pt.RunAll(t)
 }

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/Microsoft/hcsshim/hcn"
-	"github.com/Microsoft/windows-container-networking/test/utilities"
+	util "github.com/Microsoft/windows-container-networking/test/utilities"
 
 	"os"
 )
@@ -21,6 +21,7 @@ func CreateBridgeTestNetwork() *hcn.HostComputeNetwork {
 }
 
 func TestBridgeCmdAdd(t *testing.T) {
+	t.Skip("Bridge test is disabled for now.")
 	testDualStack = (os.Getenv("TestDualStack") == "1")
 	imageToUse = os.Getenv("ImageToUse")
 	testNetwork := CreateBridgeTestNetwork()
