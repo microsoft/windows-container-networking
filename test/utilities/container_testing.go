@@ -85,7 +85,7 @@ func (ci *ContainerInfo) RunContainerConnectivityTest(
 	} else {
 
 		var ipv4addr string
-		var ipv6addr string 
+		var ipv6addr string
 
 		ipv4addr, ipv6addr, err = Getv4Andv6AddressFromIPConfigList(ci.Endpoint.IpConfigurations)
 

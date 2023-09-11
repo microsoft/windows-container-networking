@@ -34,19 +34,14 @@ func GetPortEnumValue(protocol string) (uint32, error) {
 		switch strings.ToLower(protocol) {
 		case "tcp":
 			protocolInt = 6
-			break
 		case "udp":
 			protocolInt = 17
-			break
 		case "icmpv4":
 			protocolInt = 1
-			break
 		case "icmpv6":
 			protocolInt = 58
-			break
 		case "igmp":
 			protocolInt = 2
-			break
 		default:
 			return 0, errors.New("invalid protocol supplied to port mapping policy")
 		}

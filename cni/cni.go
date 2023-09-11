@@ -105,16 +105,16 @@ type K8SPodEnvArgs struct {
 }
 
 type OptionalFlags struct {
-	LocalRoutePortMapping bool `json:"localRoutedPortMapping"`
-	AllowAclPortMapping   bool `json:"allowAclPortMapping"`
-	ForceBridgeGateway    bool `json:"forceBridgeGateway"` // Intended to be temporary workaround
-	EnableDualStack       bool `json:"enableDualStack"`
-	LoopbackDSR           bool `json:"loopbackDSR"`
-	GatewayFromAdditionalRoutes    bool `json:"gatewayFromAdditionalRoutes"`
+	LocalRoutePortMapping       bool `json:"localRoutedPortMapping"`
+	AllowAclPortMapping         bool `json:"allowAclPortMapping"`
+	ForceBridgeGateway          bool `json:"forceBridgeGateway"` // Intended to be temporary workaround
+	EnableDualStack             bool `json:"enableDualStack"`
+	LoopbackDSR                 bool `json:"loopbackDSR"`
+	GatewayFromAdditionalRoutes bool `json:"gatewayFromAdditionalRoutes"`
 }
 
 func (r *Result) Print() {
-	fmt.Printf(r.String())
+	fmt.Printf("%s", r.String())
 }
 
 func (r *Result) String() string {
@@ -369,7 +369,7 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 
 	var iFace = GetInterface(endpoint)
 
-	if cniConfig.OptionalFlags.EnableDualStack == false {
+	if !cniConfig.OptionalFlags.EnableDualStack {
 
 		var ip = GetIP(network, endpoint)
 		ip.InterfaceIndex = 0

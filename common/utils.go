@@ -26,6 +26,6 @@ func LogNetworkInterfaces() {
 
 func GetAddressAsCidr(ip string, prefix uint8) string {
 
-    return ip + string('/') + strconv.FormatUint(uint64(prefix), 10)
+	return ip + string('/') + strconv.FormatUint(uint64(prefix), 10)
 
 }
