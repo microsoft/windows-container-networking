@@ -147,11 +147,17 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		// The network must be created beforehand
 		nwConfig, err = plugin.nm.GetNetworkByName(cniConfig.Name)
 
+		if err != nil {
+			logrus.Errorf("[cni-net] network not created for %s", cniConfig.Name)
+			return err
+		}
+
 		if nwConfig.Type != network.L2Bridge {
 			logrus.Errorf("[cni-net] Dual stack can only be specified with l2bridge network: [%v].", nwConfig.Type)
 			return errors.New("Dual stack specified with non l2bridge network")
 		}
 	}
+
 	if err != nil {
 		return err
 	}
