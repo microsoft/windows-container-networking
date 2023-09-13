@@ -114,7 +114,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 
 	logrus.Debugf("[cni-net] Read network configuration %+v.", cniConfig)
 
-	if cniConfig.OptionalFlags.EnableDualStack == false {
+	if !cniConfig.OptionalFlags.EnableDualStack {
 		logrus.Infof("[cni-net] Dual stack is disabled")
 	} else {
 		logrus.Infof("[cni-net] Dual stack is enabled")
@@ -141,7 +141,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		return errors.New("cannot create endpoint without a namespace")
 	}
 
-	if cniConfig.OptionalFlags.EnableDualStack == false {
+	if !cniConfig.OptionalFlags.EnableDualStack {
 		nwConfig, err = getOrCreateNetwork(plugin, networkInfo, cniConfig)
 	} else {
 		// The network must be created beforehand
@@ -265,8 +265,7 @@ func addEndpointGatewaysFromConfig(
 				m1, _ := addr.Dst.Mask.Size()
 				m2, _ := defaultDestipv4Network.Mask.Size()
 
-				if m1 == m2 &&
-					addr.Dst.IP.Equal(defaultDestipv4) {
+				if m1 == m2 && addr.Dst.IP.Equal(defaultDestipv4) {
 					endpointInfo.Gateway = addr.GW
 					logrus.Debugf("[cni-net] Assigned %v as ipv4 gateway", endpointInfo.Gateway.String())
 				}
@@ -279,8 +278,7 @@ func addEndpointGatewaysFromConfig(
 				m1, _ := addr.Dst.Mask.Size()
 				m2, _ := defaultDestipv6Network.Mask.Size()
 
-				if m1 == m2 &&
-					addr.Dst.IP.Equal(defaultDestipv6) {
+				if m1 == m2 && addr.Dst.IP.Equal(defaultDestipv6) {
 					endpointInfo.Gateway6 = addr.GW
 					logrus.Debugf("[cni-net] Assigned %v as ipv6 gateway", endpointInfo.Gateway6.String())
 				}
@@ -304,7 +302,7 @@ func allocateIpam(
 	var resultImpl *cniTypesImpl.Result
 	var err error
 
-	if cniConfig.OptionalFlags.EnableDualStack == false {
+	if !cniConfig.OptionalFlags.EnableDualStack {
 		// It seems the right thing would be to pass the original byte stream instead of the one
 		// which cni parsed into NetworkConfig. However to preserve compatibility continue
 		// the current behavior when dual stack is not enabled
@@ -325,7 +323,7 @@ func allocateIpam(
 	}
 
 	logrus.Debugf("[cni-net] IPAM plugin returned result %v.", resultImpl)
-	if cniConfig.OptionalFlags.EnableDualStack == false {
+	if !cniConfig.OptionalFlags.EnableDualStack {
 		// Derive the subnet from allocated IP address.
 		if resultImpl.IP4 != nil {
 			var subnetInfo = network.SubnetInfo{
@@ -337,7 +335,7 @@ func allocateIpam(
 			endpointInfo.IPAddress = resultImpl.IP4.IP.IP
 			endpointInfo.Gateway = resultImpl.IP4.Gateway
 
-			if forceBridgeGateway == true {
+			if forceBridgeGateway {
 				endpointInfo.Gateway = resultImpl.IP4.IP.IP.Mask(resultImpl.IP4.IP.Mask)
 				endpointInfo.Gateway[3] = 2
 			}
@@ -356,7 +354,7 @@ func allocateIpam(
 			endpointInfo.IP4Mask = resultImpl.IP4.IP.Mask
 			endpointInfo.Gateway = resultImpl.IP4.Gateway
 
-			if forceBridgeGateway == true {
+			if forceBridgeGateway {
 				endpointInfo.Gateway = resultImpl.IP4.IP.IP.Mask(resultImpl.IP4.IP.Mask)
 				endpointInfo.Gateway[3] = 2
 			}
@@ -385,7 +383,7 @@ func allocateIpam(
 // deallocateIpam performs the cleanup necessary for removing an ipam
 func deallocateIpam(cniConfig *cni.NetworkConfig, networkConfByteStream []byte) error {
 
-	if cniConfig.OptionalFlags.EnableDualStack == false {
+	if !cniConfig.OptionalFlags.EnableDualStack {
 		logrus.Infof("[cni-net] Delete from ipam when dual stack is disabled")
 		return invoke.DelegateDel(context.TODO(), cniConfig.Ipam.Type, cniConfig.Serialize(), nil)
 	} else {

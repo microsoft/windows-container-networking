@@ -31,8 +31,7 @@ func NewPlugin(name, version string) (*Plugin, error) {
 // Initialize initializes the plugin.
 func (plugin *Plugin) Initialize(config *common.PluginConfig) error {
 	// Initialize the base plugin.
-	plugin.Plugin.Initialize(config)
-	return nil
+	return plugin.Plugin.Initialize(config)
 }
 
 // Uninitialize uninitializes the plugin.

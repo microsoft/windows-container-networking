@@ -48,7 +48,10 @@ func PingTest(c hcsshim.Container, ip string, ipv6 bool) error {
 	if err != nil {
 		return err
 	}
-	result := GetOutput(p)
+	result, err := GetOutput(p)
+	if err != nil {
+		return err
+	}
 
 	if strings.Contains(result, ExpectedPingResult) ||
 		strings.Contains(result, SecondaryPingResult) {
@@ -74,7 +77,10 @@ func CurlTest(c hcsshim.Container, host string, ipv6 bool) error {
 	if err != nil {
 		return err
 	}
-	result := GetOutput(p)
+	result, err := GetOutput(p)
+	if err != nil {
+		return err
+	}
 
 	if strings.Contains(result, ExpectedCurlResult) {
 		return nil
@@ -89,7 +95,7 @@ func PingFromHost(containerIp string, ipv6 bool) error {
 	var out []byte
 	var err error
 
-	if !ipv6{
+	if !ipv6 {
 		out, err = exec.Command("ping", "-w", "8000", "-n", "4", containerIp).Output()
 	} else {
 		out, err = exec.Command("ping", "-w", "8000", "-n", "4", "-6", containerIp).Output()
@@ -106,14 +112,16 @@ func PingFromHost(containerIp string, ipv6 bool) error {
 	}
 }
 
-func GetOutput(p hcsshim.Process) string {
+func GetOutput(p hcsshim.Process) (string, error) {
 	_, o, _, err := p.Stdio()
 	if err != nil {
-		return ""
+		return "", err
 	}
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(o)
-	return strings.TrimSpace(buf.String())
+	if _, err := buf.ReadFrom(o); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(buf.String()), nil
 }
 
 func CreateContainer(t *testing.T, ContainerName string, imageName string, namespace string) (func(), error) {
@@ -198,8 +206,13 @@ func CreateContainer(t *testing.T, ContainerName string, imageName string, names
 	}
 
 	clean := func() {
-		rhcs.Delete(ctx, ContainerName, &runhcs.DeleteOpts{Force: true})
-		vhd.DetachVhd(filepath.Join(scratch, "sandbox.vhdx"))
+		if err := rhcs.Delete(ctx, ContainerName, &runhcs.DeleteOpts{Force: true}); err != nil {
+			t.Logf("WARN: failed to force-delete test container %q", ContainerName)
+		}
+		vhdName := filepath.Join(scratch, "sandbox.vhdx")
+		if err := vhd.DetachVhd(vhdName); err != nil {
+			t.Logf("WARN: failed to detach VHD %q", vhdName)
+		}
 		tio.Close()
 		os.RemoveAll(scratch)
 		if err == nil {

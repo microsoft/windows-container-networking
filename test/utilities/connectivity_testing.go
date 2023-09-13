@@ -3,14 +3,16 @@ package util
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"os"
+	"os/exec"
+	"strings"
+	"testing"
+
 	"github.com/Microsoft/hcsshim"
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/Microsoft/windows-container-networking/cni"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	"net"
-	"os"
-	"os/exec"
-	"testing"
 )
 
 const (
@@ -96,7 +98,6 @@ func CreateNetworkConf(cniVersion string, name string, pluginType string,
 		DNS:            *dns,
 		AdditionalArgs: addArgs,
 	}
-	
 	return &netConf
 }
 
@@ -127,7 +128,7 @@ func CreateDualStackNetworkConf(
 		Dst: *dst,
 	}
 
-	netConf.AdditionalRoutes = []cniTypes.Route {testRoute}
+	netConf.AdditionalRoutes = []cniTypes.Route{testRoute}
 
 	gwIp, _, _ = net.ParseCIDR(gatewayPrefixv6)
 	_, dst, _ = net.ParseCIDR("::/0")
@@ -237,7 +238,9 @@ func CreateGatewayEp(networkId string, ipAddress string, ipv6Adress string) erro
 	if err != nil {
 		return fmt.Errorf("Gateway Endpoint Not Found: %v", err)
 	}
-	ep.HostAttach(1)
+	if err := ep.HostAttach(1); err != nil {
+		return fmt.Errorf("Failed to attach HNS endpoint %q to host: %s", createdEp.Name, err)
+	}
 
 	//Hard Code for now
 	vNicName := fmt.Sprintf(`"vEthernet (%s)"`, gwEp.Name)
@@ -245,9 +248,8 @@ func CreateGatewayEp(networkId string, ipAddress string, ipv6Adress string) erro
 	os.Setenv("vEthernet", vEthernet)
 	os.Setenv("vNicName", vNicName)
 	cmd := exec.Command("cmd", "/c", "netsh", "int", "ipv4", "set", "int", "%vNicName%", "for=en")
-	cmd.Run()
-	if err != nil {
-		return fmt.Errorf("Vnic Err: %v", err)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("Failed to run vNic command '%s %s': %s", cmd.Path, strings.Join(cmd.Args, " "), err)
 	}
 
 	cmd = exec.Command("cmd", "/c", "netsh", "int", "ipv4", "add", "route", "10.0.0.0/8", "%vEthernet%", "0.0.0.0", "metric=270")
@@ -264,17 +266,14 @@ func CreateGatewayEp(networkId string, ipAddress string, ipv6Adress string) erro
 	if ipv6Adress != "" {
 
 		cmd := exec.Command("cmd", "/c", "netsh", "int", "ipv6", "set", "int", "%vNicName%", "for=en")
-		cmd.Run()
-		if err != nil {
+		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("Vnic Err: %v when enabling ipv6 for", err)
 		}
 
 		cmd = exec.Command("cmd", "/c", "netsh", "int", "ipv6", "add", "route", "fd00::/64", "%vEthernet%", "::", "metric=240")
-		err = cmd.Run()
-		if err != nil {
+		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("Route 3 Error: %v", err)
-		}	
-
+		}
 	}
 
 	os.Unsetenv("vEthernet")
@@ -311,7 +310,7 @@ func MakeTestStruct(
 	cid string,
 	testDualStack bool,
 	imageToUse string) *PluginUnitTest {
-		
+
 	pt := PluginUnitTest{}
 	epPolicies := []hcn.EndpointPolicy{}
 	addArgs := []cni.KVP{}
