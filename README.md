@@ -1,5 +1,7 @@
 # Windows Container Networking CNI
 [![Go Report Card](https://goreportcard.com/badge/github.com/Microsoft/windows-container-networking)](https://goreportcard.com/report/github.com/Microsoft/windows-container-networking)
+[![CI](https://github.com/microsoft/windows-container-networking/actions/workflows/ci.yml/badge.svg)](https://github.com/microsoft/windows-container-networking/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/microsoft/windows-container-networking/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/microsoft/windows-container-networking/actions/workflows/github-code-scanning/codeql)
 
 ## Overview
 This repo contains plugins meant for testing/development of latest windows features. Their primary use case right now is with a CRI and containerd
