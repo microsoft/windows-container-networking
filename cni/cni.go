@@ -246,7 +246,7 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) (ninfo *network
 	ninfo = &network.NetworkInfo{
 		ID:            config.Name,
 		Name:          config.Name,
-		Type:          network.NetworkType(config.Name),
+		Type:          network.NetworkType(config.Type),
 		Subnets:       subnets,
 		InterfaceName: "",
 		DNS:           dnsSettings,
