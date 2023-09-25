@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	ImageNano = "mcr.microsoft.com/windows/nanoserver:1809"
+	ImageNanoWS19 = "mcr.microsoft.com/windows/nanoserver:1809"
+	ImageNanoWS22 = "mcr.microsoft.com/windows/nanoserver:ltsc2022"
 	ImageWsc  = "microsoft/windowsservercore"
 )
 
@@ -25,11 +26,13 @@ func (ci *ContainerInfo) Setup(t *testing.T) error {
 	ns := hcn.HostComputeNamespace{}
 	var err error
 	ci.Namespace, err = ns.Create()
+	t.Logf("<DBG> Namespace created: %v | Image: %v", ci.Namespace, ci.Image)
 	if err != nil {
 		t.Errorf("error while hcn namespace create: %v", err)
 		return err
 	}
 	ci.clean, err = contTest.CreateContainer(t, ci.ContainerId, ci.Image, ci.Namespace.Id)
+	t.Logf("<DBG> Namespace created: %v", ci.Namespace)
 	if err != nil {
 		return err
 	}

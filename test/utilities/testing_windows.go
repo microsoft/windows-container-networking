@@ -12,7 +12,9 @@ import (
 	"net"
 )
 
-const Interface = "Ethernet"
+//const Interface = "Ethernet"
+//const Interface = "vEthernet (nat)"
+const Interface = "vEthernet (external)"
 
 func GetDefaultInterface(getipv6 bool) (*net.Interface, *net.IP, *net.IP, error) {
 	var foundv4 bool
@@ -23,6 +25,7 @@ func GetDefaultInterface(getipv6 bool) (*net.Interface, *net.IP, *net.IP, error)
 
 	foundInterface := net.Interface{}
 	ifaces, _ := net.Interfaces()
+	fmt.Printf("<DBG 1> %v", ifaces)
 	for _, i := range ifaces {
 		if i.Name == Interface {
 			foundInterface = i
@@ -31,12 +34,14 @@ func GetDefaultInterface(getipv6 bool) (*net.Interface, *net.IP, *net.IP, error)
 
 			addrs, _ := i.Addrs()
 			for _, addr := range addrs {
+				fmt.Printf("<DBG 2> %v", addr)
 				ipTemp, _, _ := net.ParseCIDR(addr.String())
 				if ipTemp.To4() != nil {
 
 					if !foundv4 {
 						foundIp = &ipTemp
 						foundv4 = true
+						fmt.Printf("<DBG 3> %v | %v", foundv4, foundIp)
 					}
 
 				} else {
@@ -47,6 +52,7 @@ func GetDefaultInterface(getipv6 bool) (*net.Interface, *net.IP, *net.IP, error)
 
 						foundIpv6 = &ipTemp
 						foundv6 = true
+						fmt.Printf("<DBG 4> %v | %v", foundv6, foundIpv6)
 					}
 				}
 
