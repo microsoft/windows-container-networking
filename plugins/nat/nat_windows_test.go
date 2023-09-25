@@ -18,6 +18,7 @@ func CreateNatTestNetwork() *hcn.HostComputeNetwork {
 
 func TestNatCmdAdd(t *testing.T) {
 	//t.Skip("Nat test is disabled for now.")
+	t.Logf(" OS ENV: %+v ||| ImagetoUse: %v", os.Environ(), imageToUse)
 	testDualStack = (os.Getenv("TestDualStack") == "1")
 	imageToUse = os.Getenv("ImageToUse")
 	testNetwork := CreateNatTestNetwork()

@@ -354,6 +354,7 @@ func MakeTestStruct(
 	pt.Create(netJson, testNetwork, epPolicies, dns.Search, dns.Nameservers, cid, hostIp, hostIpv6)
 	pt.DualStack = testDualStack
 	pt.ImageToUse = imageToUse
+	t.Logf("<DBG>Image MakTestStruct: %v", pt.ImageToUse)
 
 	return &pt
 }
