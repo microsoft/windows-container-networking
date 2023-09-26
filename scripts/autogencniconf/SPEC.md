@@ -48,7 +48,7 @@ The autogen CNI Configuration specification defines a format for users to define
 The tool expects following arguments:
 
 - `CniConfPath` (string): File path where the CNI configuration would be generated. This parameter is *NOT MANDATORY*, by default the cni conf will be generated in the directory from which the script is invoked.
-- `CniArgs` (string): Base64 encoded JSON string which defines the intent-based CNI configuration. This parameter is *MANDATORY*. Check out the below sample invocation for a refernce to a base64 encoded json string.
+- `CniArgs` (string): Base64 encoded JSON string which defines the intent-based CNI configuration. This parameter is *MANDATORY*. Check out the below sample invocation for a references to a base64 encoded json string.
 - `Version` (string): This is the version of the autogen tool. This parameter is *NOT MANDATORY*, by default the script will invoke the base version of 1.0.0.
 
 Sample invocation:
