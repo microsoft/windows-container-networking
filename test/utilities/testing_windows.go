@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/Microsoft/windows-container-networking/cni"
 	"github.com/Microsoft/windows-container-networking/common"
 	"github.com/Microsoft/windows-container-networking/common/core"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
-	"net"
 )
 
-const Interface = "Ethernet"
+var Interface string
 
 func GetDefaultInterface(getipv6 bool) (*net.Interface, *net.IP, *net.IP, error) {
 	var foundv4 bool
@@ -23,41 +24,44 @@ func GetDefaultInterface(getipv6 bool) (*net.Interface, *net.IP, *net.IP, error)
 
 	foundInterface := net.Interface{}
 	ifaces, _ := net.Interfaces()
-	for _, i := range ifaces {
-		if i.Name == Interface {
-			foundInterface = i
-			foundv4 = false
-			foundv6 = false
 
-			addrs, _ := i.Addrs()
-			for _, addr := range addrs {
-				ipTemp, _, _ := net.ParseCIDR(addr.String())
-				if ipTemp.To4() != nil {
+	if len(ifaces) == 0 {
+		return nil, nil, nil, fmt.Errorf("failed to find any network interfaces, unable to proceed with tests")
+	}
 
-					if !foundv4 {
-						foundIp = &ipTemp
-						foundv4 = true
-					}
+	i := ifaces[0] // use highest priority network
+	foundInterface = i
+	Interface = i.Name
+	foundv4 = false
+	foundv6 = false
 
-				} else {
-					if getipv6 &&
-						!foundv6 &&
-						!ipTemp.IsLinkLocalUnicast() &&
-						!ipTemp.IsLoopback() {
+	addrs, _ := i.Addrs()
+	for _, addr := range addrs {
+		ipTemp, _, _ := net.ParseCIDR(addr.String())
+		if ipTemp.To4() != nil {
 
-						foundIpv6 = &ipTemp
-						foundv6 = true
-					}
-				}
-
-				if foundv4 && foundv6 {
-					break
-				}
+			if !foundv4 {
+				foundIp = &ipTemp
+				foundv4 = true
 			}
+
+		} else {
+			if getipv6 &&
+				!foundv6 &&
+				!ipTemp.IsLinkLocalUnicast() &&
+				!ipTemp.IsLoopback() {
+
+				foundIpv6 = &ipTemp
+				foundv6 = true
+			}
+		}
+
+		if foundv4 && foundv6 {
+			break
 		}
 	}
 	if foundIp == nil {
-		return nil, nil, nil, fmt.Errorf("Failed to find interface %s, unable to proceed with tests", Interface)
+		return nil, nil, nil, fmt.Errorf("failed to find interface %s, unable to proceed with tests", Interface)
 	}
 	return &foundInterface, foundIp, foundIpv6, nil
 }

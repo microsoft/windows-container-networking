@@ -5,7 +5,7 @@ import (
 
 	"github.com/Microsoft/hcsshim"
 	"github.com/Microsoft/hcsshim/hcn"
-	"github.com/Microsoft/windows-container-networking/test/container"
+	contTest "github.com/Microsoft/windows-container-networking/test/container"
 )
 
 const (

@@ -5,14 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Microsoft/go-winio/vhd"
-	"github.com/Microsoft/hcsshim"
-	runhcs "github.com/Microsoft/hcsshim/pkg/go-runhcs"
-	"github.com/Microsoft/hcsshim/test/functional/utilities"
-	runc "github.com/containerd/go-runc"
-	"github.com/opencontainers/runtime-tools/generate"
-	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"io/ioutil"
 	"os"
@@ -21,6 +13,15 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/Microsoft/go-winio/vhd"
+	"github.com/Microsoft/hcsshim"
+	runhcs "github.com/Microsoft/hcsshim/pkg/go-runhcs"
+	testutilities "github.com/Microsoft/hcsshim/test/functional/utilities"
+	runc "github.com/containerd/go-runc"
+	"github.com/opencontainers/runtime-tools/generate"
+	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -32,7 +33,6 @@ const (
 
 func PingTest(c hcsshim.Container, ip string, ipv6 bool) error {
 	var pingCommand string
-
 	if !ipv6 {
 		pingCommand = fmt.Sprintf("ping -w 8000 -n 4 %s", ip)
 	} else {

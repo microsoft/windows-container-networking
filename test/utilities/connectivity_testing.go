@@ -25,7 +25,7 @@ const (
 func getDefaultDns() *cniTypes.DNS {
 	defaultDns := cniTypes.DNS{
 		//		Nameservers: []string{"8.8.8.8", "11.0.0.10"},
-		Nameservers: []string{"10.50.10.50"},
+		Nameservers: []string{"10.50.10.50", "8.8.8.8"},
 		Search:      []string{"svc.cluster.local", "svc.cluster.local"},
 	}
 	return &defaultDns
