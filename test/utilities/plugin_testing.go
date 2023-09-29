@@ -170,10 +170,9 @@ func (pt *PluginUnitTest) verifyAddEndpointProperties(t *testing.T, ci *Containe
 	if !caseBlindStringComp(&ci.Endpoint.HostComputeNamespace, &ci.Namespace.Id) {
 		t.Errorf("Endpoint namespace does not match Namespace ID.")
 	}
-	// Network Id is empty at the point pt,Network is created, this validation is repeated since we query the network by name to validate it was created
-	// if !caseBlindStringComp(&ci.Endpoint.HostComputeNetwork, &pt.Network.Id) {
-	// 	t.Errorf("Endpoint network does not match Network ID.")
-	// }
+	if !caseBlindStringComp(&ci.Endpoint.HostComputeNetwork, &pt.Network.Id) {
+		t.Errorf("Endpoint network does not match Network ID.")
+	}
 	if !comparePolicyLists(ci.Endpoint.Policies, pt.Policies) {
 		t.Errorf("Endpoint policies do not match Expected Policies.")
 	}
@@ -339,6 +338,14 @@ func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers i
 }
 
 func (pt *PluginUnitTest) RunAll(t *testing.T) {
+	if err := pt.Setup(t); err != nil {
+		t.Errorf("Failed to set up test case for %v: %s", pt.CniCmdArgs, err)
+	}
+	defer func() {
+		if err := pt.Teardown(t); err != nil {
+			t.Logf("WARN: failed to tear down test case for %v: %s", pt.CniCmdArgs, err)
+		}
+	}()
 	pt.RunUnitTest(t)
 	pt.RunBasicConnectivityTest(t, 2)
 }
