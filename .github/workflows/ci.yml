@@ -57,7 +57,14 @@ jobs:
           go install ./...
         working-directory: src/github.com/Microsoft/windows-container-networking
 
+      - name: Enable ICMP V4 
+        shell: pwsh
+        run: |
+          netsh advFirewall Firewall add rule name="Enable ICMP Protocal" protocol=icmpv4:8,any dir=in action=allow
+
       - name: Test
+        env: 
+          ImageToUse: ${{ matrix.os == 'windows-2022' && 'mcr.microsoft.com/windows/nanoserver:ltsc2022' || ''  }}
         run: |
           mingw32-make.exe test
         working-directory: src/github.com/Microsoft/windows-container-networking

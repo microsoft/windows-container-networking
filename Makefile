@@ -13,7 +13,7 @@ CNIFILES = \
 GOCMD=go
 GOLOCALENV=GO111MODULE=on GOARCH=amd64 GOOS=windows
 GOBUILD=$(GOLOCALENV) $(GOCMD) build -v -mod=vendor
-GOTEST=$(GOLOCALENV) $(GOCMD) test -v -mod=vendor
+GOTEST=$(GOLOCALENV) $(GOCMD) test -v -p 1 -mod=vendor
 
 CNI_NET_DIR = plugins
 OUTPUTDIR = out
