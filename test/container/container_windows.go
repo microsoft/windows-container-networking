@@ -17,7 +17,6 @@ import (
 	"github.com/Microsoft/go-winio/vhd"
 	"github.com/Microsoft/hcsshim"
 	runhcs "github.com/Microsoft/hcsshim/pkg/go-runhcs"
-	testutilities "github.com/Microsoft/hcsshim/test/functional/utilities"
 	runc "github.com/containerd/go-runc"
 	"github.com/opencontainers/runtime-tools/generate"
 	"github.com/pkg/errors"
@@ -30,6 +29,12 @@ const (
 	ExpectedCurlResult  = "HTTP/1.1 200 OK"
 	SecondaryCurlResult = "HTTP/1.1 301 Moved Permanently"
 )
+
+var imageLayersCache map[string][]string
+
+func init() {
+	imageLayersCache = make(map[string][]string)
+}
 
 func PingTest(c hcsshim.Container, ip string, ipv6 bool) error {
 	var pingCommand string
@@ -130,8 +135,8 @@ func CreateContainer(t *testing.T, ContainerName string, imageName string, names
 	var err error
 
 	// Make the bundle
-	bundle := testutilities.CreateTempDir(t)
-	scratch := testutilities.CreateTempDir(t)
+	bundle := createTempDir(t)
+	scratch := createTempDir(t)
 
 	// Generate the Spec
 	g, err := generate.New("windows")
@@ -145,7 +150,7 @@ func CreateContainer(t *testing.T, ContainerName string, imageName string, names
 
 	g.SetWindowsNetworkNamespace(namespace)
 
-	layers := testutilities.LayerFolders(t, imageName)
+	layers := layerFoldersForImage(t, imageName)
 
 	for _, layer := range layers {
 		g.AddWindowsLayerFolders(layer)
@@ -327,4 +332,52 @@ func readPidFile(path string) (int, error) {
 		return -1, errors.Wrap(err, "pidfile failed to parse pid")
 	}
 	return p, nil
+}
+
+func createTempDir(t *testing.T) string {
+	tempDir, err := ioutil.TempDir("", "test")
+	if err != nil {
+		t.Fatalf("failed to create temporary directory: %s", err)
+	}
+	return tempDir
+}
+
+func layerFoldersForImage(t *testing.T, imageName string) []string {
+	if _, ok := imageLayersCache[imageName]; !ok {
+		imageLayersCache[imageName] = getLayers(t, imageName)
+	}
+	return imageLayersCache[imageName]
+}
+
+func getLayers(t *testing.T, imageName string) []string {
+	if _, err := exec.LookPath("docker"); err != nil {
+		t.Fatalf("`docker` executable is required for imaged layer querying, not found in path: %s", err)
+	}
+
+	cmd := exec.Command("docker", "inspect", imageName, "-f", `"{{.GraphDriver.Data.dir}}"`)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Failed to find layers for testing image %q using `docker` cli: %s", imageName, err)
+	}
+	imagePath := strings.Replace(strings.TrimSpace(out.String()), `"`, ``, -1)
+	layers := getLayerChain(t, imagePath)
+	return append([]string{imagePath}, layers...)
+}
+
+func getLayerChain(t *testing.T, layerFolder string) []string {
+	jPath := filepath.Join(layerFolder, "layerchain.json")
+	content, err := ioutil.ReadFile(jPath)
+	if os.IsNotExist(err) {
+		t.Fatalf("layerchain not found")
+	} else if err != nil {
+		t.Fatalf("failed to read layerchain")
+	}
+
+	var layerChain []string
+	err = json.Unmarshal(content, &layerChain)
+	if err != nil {
+		t.Fatalf("failed to unmarshal layerchain")
+	}
+	return layerChain
 }
