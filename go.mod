@@ -6,7 +6,7 @@ require (
 	github.com/Microsoft/go-winio v0.5.2
 	github.com/Microsoft/hcsshim v0.8.25
 	github.com/containerd/go-runc v1.0.0
-	github.com/containernetworking/cni v0.8.1
+	github.com/containernetworking/cni v1.1.2
 	github.com/onsi/ginkgo/v2 v2.9.1
 	github.com/onsi/gomega v1.27.3
 	github.com/opencontainers/runtime-tools v0.0.0-20190313075039-7125f1d443b0
@@ -27,7 +27,6 @@ require (
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.0.0 // indirect
-	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417 // indirect
 	github.com/opencontainers/selinux v1.10.0 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect

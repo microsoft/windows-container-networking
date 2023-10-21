@@ -14,7 +14,7 @@ import (
 	network "github.com/Microsoft/windows-container-networking/network"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	cniTypesCurr "github.com/containernetworking/cni/pkg/types/current"
+	cniTypes040 "github.com/containernetworking/cni/pkg/types/040"
 	"github.com/sirupsen/logrus"
 )
 
@@ -26,8 +26,8 @@ const (
 	Internal = "internal"
 )
 
-// Supported CNI versions.
-var VersionsSupported = []string{"0.2.0", "0.3.0"}
+// Oldest Supported CNI versions
+var OldestVersionSupported = "0.2.0"
 
 type KVP struct {
 	Name  string          `json:"name"`
@@ -362,9 +362,9 @@ func (config *NetworkConfig) GetEndpointInfo(
 }
 
 // GetCurrResult gets the result object
-func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo, ifname string, cniConfig *NetworkConfig) cniTypesCurr.Result {
-	result := cniTypesCurr.Result{
-		IPs:    []*cniTypesCurr.IPConfig{},
+func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo, ifname string, cniConfig *NetworkConfig) cniTypes040.Result {
+	result := cniTypes040.Result{
+		IPs:    []*cniTypes040.IPConfig{},
 		Routes: []*cniTypes.Route{}}
 
 	var iFace = GetInterface(endpoint)
@@ -374,7 +374,7 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 		var ip = GetIP(network, endpoint)
 		ip.InterfaceIndex = 0
 
-		cIP := cniTypesCurr.IPConfig{
+		cIP := cniTypes040.IPConfig{
 			Version: ip.Version,
 			Address: net.IPNet{
 				IP:   ip.Address.IP,
@@ -391,7 +391,7 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 
 		ip4.InterfaceIndex = 0
 
-		cIP4 := cniTypesCurr.IPConfig{
+		cIP4 := cniTypes040.IPConfig{
 			Version: ip4.Version,
 			Address: net.IPNet{
 				IP:   ip4.Address.IP,
@@ -406,7 +406,7 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 
 			ip6.InterfaceIndex = 0
 
-			cIP6 := cniTypesCurr.IPConfig{
+			cIP6 := cniTypes040.IPConfig{
 				Version: ip6.Version,
 				Address: net.IPNet{
 					IP:   ip6.Address.IP,
@@ -420,7 +420,7 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 	}
 
 	// Add Interfaces to result.
-	iface := &cniTypesCurr.Interface{
+	iface := &cniTypes040.Interface{
 		Name: ifname,
 		Mac:  string(iFace.MacAddress),
 	}
