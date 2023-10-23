@@ -152,7 +152,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 			return err
 		}
 
-		if nwConfig.Type != network.L2Bridge {
+		if nwConfig.Type != hcn.L2Bridge {
 			logrus.Errorf("[cni-net] Dual stack can only be specified with l2bridge network: [%v].", nwConfig.Type)
 			return errors.New("Dual stack specified with non l2bridge network")
 		}

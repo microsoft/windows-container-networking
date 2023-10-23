@@ -11,16 +11,6 @@ import (
 	"github.com/Microsoft/hcsshim/hcn"
 )
 
-type NetworkType string
-
-const (
-	NAT         NetworkType = "NAT"
-	Overlay     NetworkType = "Overlay"
-	Transparent NetworkType = "Transparent"
-	L2Tunnel    NetworkType = "L2Tunnel"
-	L2Bridge    NetworkType = "L2Bridge"
-)
-
 type DNSInfo struct {
 	Nameservers []string
 	Domain      string
@@ -32,7 +22,7 @@ type DNSInfo struct {
 type NetworkInfo struct {
 	ID            string
 	Name          string
-	Type          NetworkType
+	Type          hcn.NetworkType
 	InterfaceName string
 	Subnets       []SubnetInfo
 	DNS           DNSInfo
@@ -99,7 +89,7 @@ func GetNetworkInfoFromHostComputeNetwork(hcnNetwork *hcn.HostComputeNetwork) *N
 	return &NetworkInfo{
 		ID:   hcnNetwork.Id,
 		Name: hcnNetwork.Name,
-		Type: NetworkType(hcnNetwork.Type),
+		Type: hcnNetwork.Type,
 		// Note: HostComputeNetwork has NetAdapterNameNetworkPolicySetting instead of a NetworkAdapterName/InterfaceName field.
 		InterfaceName: GetNetAdapterNameNetworkPolicySetting(hcnNetwork.Policies),
 		Subnets:       subnets,
