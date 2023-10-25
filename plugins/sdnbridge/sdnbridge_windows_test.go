@@ -25,7 +25,8 @@ func TestBridgeCmdAdd(t *testing.T) {
 	testDualStack = (os.Getenv("TestDualStack") == "1")
 	imageToUse = os.Getenv("ImageToUse")
 	testNetwork := CreateBridgeTestNetwork()
-	pt := util.MakeTestStruct(t, testNetwork, "L2Bridge", true, true, "", testDualStack, imageToUse)
-	pt.Ipv6Url = os.Getenv("Ipv6UrlToUse")
-	pt.RunAll(t)
+	if pt := util.MakeTestStruct(t, testNetwork, "L2Bridge", true, true, "", testDualStack, imageToUse); pt != nil {
+		pt.Ipv6Url = os.Getenv("Ipv6UrlToUse")
+		pt.RunAll(t)
+	}
 }

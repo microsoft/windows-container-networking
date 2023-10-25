@@ -21,6 +21,7 @@ func TestNatCmdAdd(t *testing.T) {
 	testDualStack = (os.Getenv("TestDualStack") == "1")
 	imageToUse = os.Getenv("ImageToUse")
 	testNetwork := CreateNatTestNetwork()
-	pt := util.MakeTestStruct(t, testNetwork, "nat", false, false, "", testDualStack, imageToUse)
-	pt.RunAll(t)
+	if pt := util.MakeTestStruct(t, testNetwork, "nat", false, false, "", testDualStack, imageToUse); pt != nil {
+		pt.RunAll(t)
+	}
 }
