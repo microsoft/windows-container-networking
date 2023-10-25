@@ -99,7 +99,7 @@ func (pt *PluginUnitTest) addCase(t *testing.T, ci *ContainerInfo) error {
 	var err error
 	epName := ci.ContainerId + "_" + pt.Network.Name
 	if err := AddCase(pt.CniCmdArgs); err != nil {
-		return fmt.Errorf("Failed to add test case for cmd args %v: %s", pt.CniCmdArgs, err)
+		return fmt.Errorf("Failed to add test case for cmd args %v (Stdin %s): %s", pt.CniCmdArgs, pt.CniCmdArgs.StdinData, err)
 	}
 	ci.Namespace, err = hcn.GetNamespaceByID(ci.Namespace.Id)
 	if err != nil {
@@ -118,7 +118,7 @@ func (pt *PluginUnitTest) delCase(t *testing.T, ci *ContainerInfo) error {
 	var err error
 	epName := ci.ContainerId + "_" + pt.Network.Name
 	if err := DelCase(pt.CniCmdArgs); err != nil {
-		return fmt.Errorf("Failed to delete test case for cmd args %v: %s", pt.CniCmdArgs, err)
+		return fmt.Errorf("Failed to delete test case for cmd args %v (Stdin %s): %s", pt.CniCmdArgs, pt.CniCmdArgs.StdinData, err)
 	}
 
 	ci.Namespace, err = hcn.GetNamespaceByID(ci.Namespace.Id)
@@ -235,7 +235,7 @@ func (pt *PluginUnitTest) RunDelTest(t *testing.T, ci *ContainerInfo) error {
 }
 
 func (pt *PluginUnitTest) RunUnitTest(t *testing.T) {
-	t.Logf("Running Unit Test for case: %v", pt.CniCmdArgs)
+	t.Logf("Running Unit Test for case: %v (Stdin: %s)", pt.CniCmdArgs, pt.CniCmdArgs.StdinData)
 	cid := fmt.Sprintf("%vTestUnitContainer", string(pt.Network.Type))
 	imageName := ImageNano
 	if pt.ImageToUse != "" {
@@ -246,23 +246,23 @@ func (pt *PluginUnitTest) RunUnitTest(t *testing.T) {
 		Image:       imageName,
 	}
 	if err := ct.Setup(t); err != nil {
-		t.Errorf("Failed to set up unit test case for %v: %s", pt.CniCmdArgs, err)
+		t.Errorf("Failed to set up unit test case for %v (Stdin %s): %s", pt.CniCmdArgs, pt.CniCmdArgs.StdinData, err)
 	}
 	defer func() {
 		if err := ct.Teardown(t); err != nil {
-			t.Logf("WARN: failed to tear down unit case for %v: %s", pt.CniCmdArgs, err)
+			t.Logf("WARN: failed to tear down unit case for %v (Stdin %s): %s", pt.CniCmdArgs, pt.CniCmdArgs.StdinData, err)
 		}
 	}()
 
 	if err := pt.RunAddTest(t, ct); err != nil {
-		t.Errorf("Failed to run ADD test for %v: %s", pt.CniCmdArgs, err)
+		t.Errorf("Failed to run ADD test for %v (Stdin %s): %s", pt.CniCmdArgs, pt.CniCmdArgs.StdinData, err)
 	}
 
 	if err := pt.RunDelTest(t, ct); err != nil {
-		t.Errorf("Failed to run DEL test for %v: %s", pt.CniCmdArgs, err)
+		t.Errorf("Failed to run DEL test for %v (Stdin %s): %s", pt.CniCmdArgs, pt.CniCmdArgs.StdinData, err)
 	}
 
-	t.Logf("End Unit Test for case: %v", pt.CniCmdArgs)
+	t.Logf("End Unit Test for case: %v (Stdin: %s)", pt.CniCmdArgs, pt.CniCmdArgs.StdinData)
 }
 
 func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers int) {
@@ -279,7 +279,7 @@ func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers i
 			Image:       imageName,
 		}
 		if err := ct.Setup(t); err != nil {
-			t.Errorf("Failed to set up basic connectivity test case for %v: %s", pt.CniCmdArgs, err)
+			t.Errorf("Failed to set up basic connectivity test case for %v (Stdin %s): %s", pt.CniCmdArgs, pt.CniCmdArgs.StdinData, err)
 		}
 
 		err := pt.RunAddTest(t, ct)
@@ -329,7 +329,7 @@ func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers i
 
 	for _, ct := range ctList {
 		if err := ct.Teardown(t); err != nil {
-			t.Errorf("Failed to tear down basic connectivity case for %v: %s", pt.CniCmdArgs, err)
+			t.Errorf("Failed to tear down basic connectivity case for %v (Stdin %s): %s", pt.CniCmdArgs, pt.CniCmdArgs.StdinData, err)
 		}
 	}
 
@@ -339,11 +339,11 @@ func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers i
 
 func (pt *PluginUnitTest) RunAll(t *testing.T) {
 	if err := pt.Setup(t); err != nil {
-		t.Errorf("Failed to set up test case for %v: %s", pt.CniCmdArgs, err)
+		t.Errorf("Failed to set up test case for %v (Stdin %s): %s", pt.CniCmdArgs, pt.CniCmdArgs.StdinData, err)
 	}
 	defer func() {
 		if err := pt.Teardown(t); err != nil {
-			t.Logf("WARN: failed to tear down test case for %v: %s", pt.CniCmdArgs, err)
+			t.Logf("WARN: failed to tear down test case for %v (Stdin %s): %s", pt.CniCmdArgs, pt.CniCmdArgs.StdinData, err)
 		}
 	}()
 	pt.RunUnitTest(t)
