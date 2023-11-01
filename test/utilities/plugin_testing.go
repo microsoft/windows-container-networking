@@ -63,9 +63,9 @@ func (pt *PluginUnitTest) Setup(t *testing.T) error {
 		}
 
 		if pt.DualStack {
-			err = CreateGatewayEp(pt.Network.Id, conf.AdditionalRoutes[0].GW.String(), conf.AdditionalRoutes[1].GW.String())
+			err = CreateGatewayEp(t, pt.Network.Id, conf.AdditionalRoutes[0].GW.String(), conf.AdditionalRoutes[1].GW.String())
 		} else {
-			err = CreateGatewayEp(pt.Network.Id, conf.Ipam.Routes[0].GW.String(), "")
+			err = CreateGatewayEp(t, pt.Network.Id, conf.Ipam.Routes[0].GW.String(), "")
 		}
 
 		if err != nil {
