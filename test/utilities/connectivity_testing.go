@@ -187,7 +187,7 @@ func GetNetAdapterPolicy() *hcn.NetworkPolicy {
 	}
 	return &netAdapterPolicy
 }
-func CreateGatewayEp(networkId string, ipAddress string, ipv6Adress string) error {
+func CreateGatewayEp(t *testing.T, networkId string, ipAddress string, ipv6Adress string) error {
 	gwEp := hcn.HostComputeEndpoint{
 		SchemaVersion: hcn.SchemaVersion{
 			Major: 2,
@@ -242,42 +242,50 @@ func CreateGatewayEp(networkId string, ipAddress string, ipv6Adress string) erro
 		return fmt.Errorf("Failed to attach HNS endpoint %q to host: %s", createdEp.Name, err)
 	}
 
-	//Hard Code for now
+	// Hard Code for now
 	vNicName := fmt.Sprintf(`"vEthernet (%s)"`, gwEp.Name)
-	vEthernet := `"vEthernet (Ethernet)"`
-	os.Setenv("vEthernet", vEthernet)
 	os.Setenv("vNicName", vNicName)
+	defer os.Unsetenv("vNicName")
+
+	foundIf, _, _, err := GetDefaultInterface(ipv6Adress != "")
+	if err != nil {
+		t.Errorf("Unable to find default interface for use as gateway endpoint: %v", err)
+		return nil
+	}
+
+	vEthernetName := fmt.Sprintf("%q", foundIf.Name)
+	t.Logf("Setting up gateway endpoint %s on interface: %s", vNicName, vEthernetName)
+
+	os.Setenv("vEthernet", vEthernetName)
+	defer os.Unsetenv("vEthernet")
+
 	cmd := exec.Command("cmd", "/c", "netsh", "int", "ipv4", "set", "int", "%vNicName%", "for=en")
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("Failed to run vNic command '%s %s': %s", cmd.Path, strings.Join(cmd.Args, " "), err)
+	if err := runTestCommand(cmd); err != nil {
+		return fmt.Errorf("Failed to run vNic command: %v", err)
 	}
 
 	cmd = exec.Command("cmd", "/c", "netsh", "int", "ipv4", "add", "route", "10.0.0.0/8", "%vEthernet%", "0.0.0.0", "metric=270")
-	err = cmd.Run()
-	if err != nil {
-		return fmt.Errorf("Route 1 Error: %v", err)
+	if err := runTestCommand(cmd); err != nil {
+		return fmt.Errorf("IPv4 Route 1 Command Error: %v", err)
 	}
 	cmd = exec.Command("cmd", "/c", "netsh", "int", "ipv4", "add", "route", "10.0.0.0/8", "%vEthernet%", "10.0.0.2", "metric=300")
-	err = cmd.Run()
-	if err != nil {
-		return fmt.Errorf("Route 2 Error: %v", err)
+	if err := runTestCommand(cmd); err != nil {
+		return fmt.Errorf("IPv4 Route 2 Command Error: %v", err)
 	}
 
 	if ipv6Adress != "" {
 
 		cmd := exec.Command("cmd", "/c", "netsh", "int", "ipv6", "set", "int", "%vNicName%", "for=en")
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("Vnic Err: %v when enabling ipv6 for", err)
+		if err := runTestCommand(cmd); err != nil {
+			return fmt.Errorf("Error enabling vNic IPv6: %v", err)
 		}
 
 		cmd = exec.Command("cmd", "/c", "netsh", "int", "ipv6", "add", "route", "fd00::/64", "%vEthernet%", "::", "metric=240")
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("Route 3 Error: %v", err)
+		if err := runTestCommand(cmd); err != nil {
+			return fmt.Errorf("Error adding vNic IPv6 route: %v", err)
 		}
 	}
 
-	os.Unsetenv("vEthernet")
-	os.Unsetenv("vNicName")
 	return nil
 }
 
@@ -315,15 +323,17 @@ func MakeTestStruct(
 	epPolicies := []hcn.EndpointPolicy{}
 	addArgs := []cni.KVP{}
 	foundIf, hostIp, hostIpv6, err := GetDefaultInterface(testDualStack)
+	if err != nil {
+		t.Errorf("unable to find interface %s. Testing failed", Interface)
+		return nil
+	}
+
 	if !testDualStack {
 		t.Logf("Interface Found: [%v] with ip [%v]", foundIf, hostIp)
 	} else {
 		t.Logf("Interface Found: [%v] with ipv4 [%v] ipv6 [%v]", foundIf, hostIp, hostIpv6)
 	}
-	if err != nil {
-		t.Errorf("unable to find interface %s. Testing failed", Interface)
-		return nil
-	}
+
 	if epPols {
 		epPolicies = getDefaultEndpointPolicies(hostIp.String(), testDualStack)
 		addArgs = getDefaultAddArgs(hostIp.String(), testDualStack)
@@ -365,4 +375,14 @@ func CreateNamespace() (*hcn.HostComputeNamespace, error) {
 		return nil, err
 	}
 	return namespace, nil
+}
+
+// Utility to run the given `exec.Cmd` which formats in combined stdout/stderr on failure.
+func runTestCommand(cmd *exec.Cmd) error {
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		cmdStr := fmt.Sprintf("%s %s", cmd.Path, strings.Join(cmd.Args, " "))
+		return fmt.Errorf("Failed to run command %q: %v\n%s", cmdStr, err, string(out))
+	}
+	return nil
 }
