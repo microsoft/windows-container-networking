@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Microsoft/hcsshim/hcn"
+	"github.com/Microsoft/windows-container-networking/cni"
 	util "github.com/Microsoft/windows-container-networking/test/utilities"
 )
 
@@ -28,17 +29,17 @@ func GetVsidPol() []json.RawMessage {
 	return []json.RawMessage{vsidPolRaw}
 }
 
-func CreateOverlayTestNetwork() *hcn.HostComputeNetwork {
+func CreateOverlayTestNetwork(t *testing.T) *hcn.HostComputeNetwork {
 	ipams := util.GetDefaultIpams()
 	ipams[0].Subnets[0].Policies = GetVsidPol()
-	return util.CreateTestNetwork("overlayNet", "Overlay", ipams, true)
+	return util.CreateTestNetwork(t, "overlayNet", cni.SdnOverlayPluginName, ipams, true)
 }
 
 func TestOverlayCmdAdd(t *testing.T) {
 	// t.Skip("Overlay test is disabled for now.")
 	testDualStack = (os.Getenv("TestDualStack") == "1")
 	imageToUse = os.Getenv("ImageToUse")
-	testNetwork := CreateOverlayTestNetwork()
-	pt := util.MakeTestStruct(t, testNetwork, "Overlay", true, false, "", testDualStack, imageToUse)
+	testNetwork := CreateOverlayTestNetwork(t)
+	pt := util.MakeTestStruct(t, testNetwork, true, false, "", testDualStack, imageToUse)
 	pt.RunAll(t)
 }
