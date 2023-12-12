@@ -20,14 +20,15 @@ import (
 
 const (
 	// CNI commands.
-	CmdAdd = "ADD"
-	CmdDel = "DEL"
+	CmdAdd   = "ADD"
+	CmdDel   = "DEL"
+	CmdCheck = "CHECK"
 
 	Internal = "internal"
 )
 
 // Supported CNI versions.
-var VersionsSupported = []string{"0.2.0", "0.3.0"}
+var VersionsSupported = []string{"0.2.0", "0.3.0", "0.4.0", "1.0.0"}
 
 type KVP struct {
 	Name  string          `json:"name"`
@@ -126,21 +127,26 @@ func (r *Result) String() string {
 type PluginApi interface {
 	Add(args *cniSkel.CmdArgs) error
 	Delete(args *cniSkel.CmdArgs) error
+	Check(args *cniSkel.CmdArgs) error
 }
 
 // CallPlugin calls the given CNI plugin through the internal interface.
 func CallPlugin(plugin PluginApi, cmd string, args *cniSkel.CmdArgs, config *NetworkConfig) (*cniTypes.Result, error) {
-	var err error
-
 	savedType := config.Ipam.Type
 	config.Ipam.Type = Internal
 	args.StdinData = config.Serialize()
 
 	// Call the plugin's internal interface.
-	if cmd == CmdAdd {
+	var err error
+	switch cmd {
+	case CmdAdd:
 		err = plugin.Add(args)
-	} else {
+	case CmdDel:
 		err = plugin.Delete(args)
+	case CmdCheck:
+		err = plugin.Check(args)
+	default:
+		err = fmt.Errorf("Called with unknown CNI verb %q", cmd)
 	}
 
 	config.Ipam.Type = savedType

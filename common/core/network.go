@@ -484,3 +484,13 @@ func (plugin *netPlugin) Delete(args *cniSkel.CmdArgs) error {
 	logrus.Debugf("[cni-net] DEL succeeded.")
 	return nil
 }
+
+// Check handles CNI CHECK commands.
+// args.ContainerID - ID of the container for which network endpoint is to be checked.
+// args.Netns - Network Namespace Id (required).
+// args.IfName - Interface Name specifies the interface the network should bind to (ex: Ethernet).
+// args.Path - Location of the config file.
+func (plugin *netPlugin) Check(args *cniSkel.CmdArgs) error {
+	logrus.Warnf("[cni-net] CHECK is currently NOT implemented! Called with args: %v", args)
+	return nil
+}
