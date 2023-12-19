@@ -15,6 +15,7 @@
       - [SDNRoute Policy](#sdnroute-policy)
   - [Appendix: Examples](#appendix-examples)
     - [Basic Conf](#basic-conf)
+    - [Conf with DHCP parameters](#conf-with-dhcp-parameters)
     - [Conf with additional policies](#conf-with-additional-policies)
 	- [Sample auto-generated CNI configuration](#sample-auto-generated-cni-configuration)
 
@@ -30,7 +31,7 @@ Released versions of the spec are available as Git tags.
 
 | tag                                                                                  | spec permalink                                                                        | major changes                     |
 | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- | --------------------------------- |
-| [`spec-v1.0.0`](https://github.com/microsoft/windows-container-networking/cni/releases/tag/spec-v1.0.0) | [spec at v1.0.0](https://github.com/microsoft/windows-container-networking/cni/blob/spec-v1.0.0/SPEC.md) | Removed non-list configurations; removed `version` field of `interfaces` array |
+| [`spec-v1.0.0`](https://github.com/microsoft/windows-container-networking/cni/releases/tag/spec-v1.0.0) | [spec at v1.0.0](https://github.com/microsoft/windows-container-networking/cni/blob/spec-v1.0.0/SPEC.md) | Initial draft |
 
 *Do not rely on these tags being stable.  In the future, we may change our mind about which particular commit is the right marker for a given historical spec version.*
 
@@ -76,7 +77,9 @@ Below sections specify the JSON format that needs to be passed after [encoding](
 - `LocalEndpoint` (string): IP Address of the local endpoint. Used to configure default policies for the endpoint. This parameter is *MANDATORY*.
 - `InfraPrefix` (string): CIDR of the management network of the underlying node. Used to configure default policies for the network. This parameter is *MANDATORY*.
 - `AddditionalPolicies` (dictionary): Defined [here](#configure-additional-policies). This parameter is *NOT MANDATORY*.
-### Configure Additional Policies
+- `DhcpEnabled` (boolean): Set to true if the container host management interface is expected to have a DHCP leased IP. This parameter is *NOT MANDATORY*. This parameter is not translated into any CNI conf field, it is only meaningful to the infrastructure layer.
+- `DhcpCheckTimeout` (integer): Wait for this time interval in seconds for the DHCP IP to get assigned before creating the HNS Network and generating the CNI conf. This parameter is *NOT MANDATORY*. This parameter can only be set if 'DhcpEnabled' field is set to true. This parameter is not translated into any CNI conf field, it is only meaningful to the infrastructure layer.
+### Configure Additional Policies 
 #### ACL Policy
 There are few system-defined default ACL policies. Users can configure additional ACL polices with below parameters.
 - `RemoteAddresses` (string): This parameter is *NOT MANDATORY*.
@@ -91,8 +94,8 @@ There are few system-defined default ACL policies. Users can configure additiona
 #### OutBound NAT Policy
 - `Exceptions` (string[]): List of IP Addresses/CIDRs to allow NATed outbound traffic. This parameter is *MANDATORY*.
 #### SDNRoute Policy
-- `DestinationPrefix` (string): .This parameter is *MANDATORY*.
-- `NeedEncap` (bool): . This parameter is *MANDATORY*.
+- `DestinationPrefix` (string): This parameter is *MANDATORY*.
+- `NeedEncap` (bool): This parameter is *MANDATORY*.
 ## Appendix: Examples
 ### Basic Conf
 ```jsonc
@@ -142,6 +145,19 @@ There are few system-defined default ACL policies. Users can configure additiona
             }
         }
 	]
+}
+```
+### Conf with DHCP parameters
+```jsonc
+{
+	"Name": "azure-cni",
+	"Type": "sdnbridge",
+	"Subnet": "192.168.0.0/24",
+	"InfraPrefix": "172.16.0.0/24",
+	"Gateway": "192.168.0.2",
+	"DnsServers": "8.8.8.8",
+	"DhcpEnabled": true,
+	"DhcpCheckTimeout": 90
 }
 ```
 ### Sample auto-generated CNI configuration
