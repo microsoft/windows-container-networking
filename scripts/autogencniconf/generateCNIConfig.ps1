@@ -95,7 +95,7 @@ class CniArgs {
     [Policy[]] $AdditionalPolicies
     [bool] $SkipDefaultPolicies # Undocumented parameter to disable system policies
     [bool] $DhcpEnabled
-    [int] $DhcpCheckTimeout # Default value is 60 sec, based on RFC 1541 (Section 4.4.4)
+    [int] $DhcpCheckTimeout
 
     CniArgs([System.Object] $cniArgs) {
         # Mandatory Parameters
@@ -110,10 +110,10 @@ class CniArgs {
         # Optional Parameters
         if ($cniArgs.psobject.Properties.name.Contains('Version')) {$this.Version = $cniArgs.Version} else {$this.Version = $script:DEFAULT_CNI_VERSION}
         if ($cniArgs.psobject.Properties.name.Contains('SkipDefaultPolicies')) {$this.SkipDefaultPolicies = $true} else {$this.SkipDefaultPolicies = $false}
-        if ($cniArgs.psobject.Properties.name.Contains('DhcpEnabled')) {$this.DhcpEnabled = [bool]$cniArgs.DhcpEnabled; Write-Host "============="$this.DhcpEnabled;}
+        if ($cniArgs.psobject.Properties.name.Contains('DhcpEnabled')) {$this.DhcpEnabled = $cniArgs.DhcpEnabled}
         if ($this.DhcpEnabled -eq $true) {
             Write-Host "Inside if statement"
-            $this.DhcpCheckTimeout = $script:DHCP_CHECK_TIMEOUT_MIN #Default value of 60 secs,  based on RFC 1541
+            $this.DhcpCheckTimeout = $script:DHCP_CHECK_TIMEOUT_MIN # Default value of 60 secs,  based on RFC 1541
             if ($cniArgs.psobject.Properties.name.Contains('DhcpCheckTimeout')) {
                 Write-Host "Inside 2nd if statement"
                 if((-not (($cniArgs.DhcpCheckTimeout -ge $script:DHCP_CHECK_TIMEOUT_MIN) -and ($cniArgs.DhcpCheckTimeout -le $script:DHCP_CHECK_TIMEOUT_MAX))) -or (($cniArgs.DhcpCheckTimeout % 10) -ne 0)) {
