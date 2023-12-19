@@ -55,6 +55,8 @@ set-variable -name ACL_POLICY -value ([string]"ACL") -Scope Script
 set-variable -name DEFAULT_PRIORITY -value ([string]"-1") -Scope Script # Used to help in sorting the policies based on priority even if priority is not specified by user
 set-variable -name USER_POLICY_PRIO_START -value ([int]3000) -Scope Script
 set-variable -name USER_POLICY_PRIO_END -value ([int]8000) -Scope Script
+set-variable -name DHCP_CHECK_TIMEOUT_MIN -value ([int]60) -Scope Script
+set-variable -name DHCP_CHECK_TIMEOUT_MAX -value ([int]600) -Scope Script
 
 enum OptionalKeysFlag {
     NoOptKeys = 1
@@ -92,6 +94,8 @@ class CniArgs {
     [string[]] $DnsServers
     [Policy[]] $AdditionalPolicies
     [bool] $SkipDefaultPolicies # Undocumented parameter to disable system policies
+    [bool] $DhcpEnabled
+    [int] $DhcpCheckTimeout # Default value is 60 sec, based on RFC 1541 (Section 4.4.4)
 
     CniArgs([System.Object] $cniArgs) {
         # Mandatory Parameters
@@ -106,6 +110,26 @@ class CniArgs {
         # Optional Parameters
         if ($cniArgs.psobject.Properties.name.Contains('Version')) {$this.Version = $cniArgs.Version} else {$this.Version = $script:DEFAULT_CNI_VERSION}
         if ($cniArgs.psobject.Properties.name.Contains('SkipDefaultPolicies')) {$this.SkipDefaultPolicies = $true} else {$this.SkipDefaultPolicies = $false}
+        if ($cniArgs.psobject.Properties.name.Contains('DhcpEnabled')) {$this.DhcpEnabled = [bool]$cniArgs.DhcpEnabled; Write-Host "============="$this.DhcpEnabled;}
+        if ($this.DhcpEnabled -eq $true) {
+            Write-Host "Inside if statement"
+            $this.DhcpCheckTimeout = $script:DHCP_CHECK_TIMEOUT_MIN #Default value of 60 secs,  based on RFC 1541
+            if ($cniArgs.psobject.Properties.name.Contains('DhcpCheckTimeout')) {
+                Write-Host "Inside 2nd if statement"
+                if((-not (($cniArgs.DhcpCheckTimeout -ge $script:DHCP_CHECK_TIMEOUT_MIN) -and ($cniArgs.DhcpCheckTimeout -le $script:DHCP_CHECK_TIMEOUT_MAX))) -or (($cniArgs.DhcpCheckTimeout % 10) -ne 0)) {
+                    Write-Host "Inside 3rd if statement"
+                    Write-Verbose -Message ("DHCP Check timeout should be a multiple of 10 and have a value between {0} - {1}. Invalid dhcp check timeout parameter: {2}" -f $script:DHCP_CHECK_TIMEOUT_MIN, $script:DHCP_CHECK_TIMEOUT_MAX, $cniArgs.DhcpCheckTimeout)
+                    throw ("Invalid DHCP Check timeout parameter: {0}" -f $cniArgs.DhcpCheckTimeout)
+                }
+                $this.DhcpCheckTimeout = $cniArgs.DhcpCheckTimeout
+            }
+        } else {
+            if ($cniArgs.psobject.Properties.name.Contains('DhcpCheckTimeout')) {
+                Write-Host "Inside else statement"
+                Write-Verbose -Message ("DHCP Check timeout should be a configured only when DhcpEnabled is set.")
+                throw "Invalid DHCP Check timeout parameter should be configured only when DhcpEnabled parameter is set. Missing parameter DhcpEnabled."
+            }
+        }
         if ($cniArgs.psobject.Properties.name.Contains('AdditionalPolicies')) {
             for($i=0; $i -lt $cniArgs.AdditionalPolicies.length; $i++) {
                 # Following constraints are ensured for policy priorities (HNS supports priorities between 100-65500 for ACLs)
@@ -323,3 +347,5 @@ Remove-Variable -name DEFAULT_PRIORITY -Scope Script
 Remove-Variable -name ACL_POLICY -Scope Script
 Remove-Variable -name USER_POLICY_PRIO_START -Scope Script
 Remove-Variable -name USER_POLICY_PRIO_END -Scope Script
+Remove-Variable -name DHCP_CHECK_TIMEOUT_MIN -Scope Script
+Remove-Variable -name DHCP_CHECK_TIMEOUT_MAX -Scope Script

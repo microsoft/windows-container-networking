@@ -49,7 +49,18 @@ var _ = BeforeSuite(func() {
 	Expect(scriptPath).To(BeAnExistingFile())
 })
 
+
+
 var _ = Describe("Autogen CNI conf Tests", func() {
+
+	AfterEach(func() {
+		// Remove the cni conf if generated after every test case
+		_, err := os.Stat(cniConfPath)
+		if err == nil {
+			err = os.Remove(cniConfPath)
+			Expect(err).NotTo(HaveOccurred(), "cni conf file [%v] deletion failed with err [%s]", cniConfPath, err)
+		}
+  	})
 
 	// Test Case 1
 	It("Verifies that error is thrown if input json is invalid", func() {
@@ -224,6 +235,60 @@ var _ = Describe("Autogen CNI conf Tests", func() {
 
 		It("Verifies higher limit of the user priority band is honored", func() {
 			cniArgs := getEncodedCniArgs("tc7b_input.json")
+			Expect(cniArgs).NotTo(BeEmpty())
+
+			cmd := exec.Command("powershell", scriptPath, "-CniArgs", cniArgs, "-CniConfPath", cniConfPath)
+			out, err := cmd.CombinedOutput()
+			Expect(err).To(HaveOccurred(), "cmd [%s] failed with error [%v]. output is [%s]", cmd, err, out)
+			Expect(cniConfPath).NotTo(BeAnExistingFile())
+		})
+	})
+
+	// Test Case 8
+	When("Setting up networking for a DHCP enabled host", func() {
+
+		It("Verifies lower limit of the DHCP check timeout is honored", func() {
+			cniArgs := getEncodedCniArgs("tc8a_input.json")
+			Expect(cniArgs).NotTo(BeEmpty())
+
+			cmd := exec.Command("powershell", scriptPath, "-CniArgs", cniArgs, "-CniConfPath", cniConfPath)
+			out, err := cmd.CombinedOutput()
+			Expect(err).To(HaveOccurred(), "cmd [%s] failed with error [%v]. output is [%s]", cmd, err, out)
+			Expect(cniConfPath).NotTo(BeAnExistingFile())
+		})
+
+		It("Verifies higher limit of the DHCP check timeout is honored", func() {
+			cniArgs := getEncodedCniArgs("tc8b_input.json")
+			Expect(cniArgs).NotTo(BeEmpty())
+
+			cmd := exec.Command("powershell", scriptPath, "-CniArgs", cniArgs, "-CniConfPath", cniConfPath)
+			out, err := cmd.CombinedOutput()
+			Expect(err).To(HaveOccurred(), "cmd [%s] failed with error [%v]. output is [%s]", cmd, err, out)
+			Expect(cniConfPath).NotTo(BeAnExistingFile())
+		})
+
+		It("Verifies the DHCP check timeout is a multiple of 10", func() {
+			cniArgs := getEncodedCniArgs("tc8c_input.json")
+			Expect(cniArgs).NotTo(BeEmpty())
+
+			cmd := exec.Command("powershell", scriptPath, "-CniArgs", cniArgs, "-CniConfPath", cniConfPath)
+			out, err := cmd.CombinedOutput()
+			Expect(err).To(HaveOccurred(), "cmd [%s] failed with error [%v]. output is [%s]", cmd, err, out)
+			Expect(cniConfPath).NotTo(BeAnExistingFile())
+		})
+
+		It("Verifies default DHCP check timeout is used if the parameter is missing", func() {
+			cniArgs := getEncodedCniArgs("tc8d_input.json")
+			Expect(cniArgs).NotTo(BeEmpty())
+
+			cmd := exec.Command("powershell", scriptPath, "-CniArgs", cniArgs, "-CniConfPath", cniConfPath)
+			out, err := cmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), "cmd [%s] failed with error [%v]. output is [%s]", cmd, err, out)
+			Expect(cniConfPath).To(BeAnExistingFile())
+		})
+
+		It("Verifies DHCP check timeout is honored only if DhcpEnabled parameter is set", func() {
+			cniArgs := getEncodedCniArgs("tc8e_input.json")
 			Expect(cniArgs).NotTo(BeEmpty())
 
 			cmd := exec.Command("powershell", scriptPath, "-CniArgs", cniArgs, "-CniConfPath", cniConfPath)
