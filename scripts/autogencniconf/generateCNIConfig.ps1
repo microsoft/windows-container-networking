@@ -112,12 +112,9 @@ class CniArgs {
         if ($cniArgs.psobject.Properties.name.Contains('SkipDefaultPolicies')) {$this.SkipDefaultPolicies = $true} else {$this.SkipDefaultPolicies = $false}
         if ($cniArgs.psobject.Properties.name.Contains('DhcpEnabled')) {$this.DhcpEnabled = $cniArgs.DhcpEnabled}
         if ($this.DhcpEnabled -eq $true) {
-            Write-Host "Inside if statement"
             $this.DhcpCheckTimeout = $script:DHCP_CHECK_TIMEOUT_MIN # Default value of 60 secs,  based on RFC 1541
             if ($cniArgs.psobject.Properties.name.Contains('DhcpCheckTimeout')) {
-                Write-Host "Inside 2nd if statement"
                 if((-not (($cniArgs.DhcpCheckTimeout -ge $script:DHCP_CHECK_TIMEOUT_MIN) -and ($cniArgs.DhcpCheckTimeout -le $script:DHCP_CHECK_TIMEOUT_MAX))) -or (($cniArgs.DhcpCheckTimeout % 10) -ne 0)) {
-                    Write-Host "Inside 3rd if statement"
                     Write-Verbose -Message ("DHCP Check timeout should be a multiple of 10 and have a value between {0} - {1}. Invalid dhcp check timeout parameter: {2}" -f $script:DHCP_CHECK_TIMEOUT_MIN, $script:DHCP_CHECK_TIMEOUT_MAX, $cniArgs.DhcpCheckTimeout)
                     throw ("Invalid DHCP Check timeout parameter: {0}" -f $cniArgs.DhcpCheckTimeout)
                 }
@@ -125,7 +122,6 @@ class CniArgs {
             }
         } else {
             if ($cniArgs.psobject.Properties.name.Contains('DhcpCheckTimeout')) {
-                Write-Host "Inside else statement"
                 Write-Verbose -Message ("DHCP Check timeout should be a configured only when DhcpEnabled is set.")
                 throw "Invalid DHCP Check timeout parameter should be configured only when DhcpEnabled parameter is set. Missing parameter DhcpEnabled."
             }
