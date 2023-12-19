@@ -15,9 +15,9 @@
       - [SDNRoute Policy](#sdnroute-policy)
   - [Appendix: Examples](#appendix-examples)
     - [Basic Conf](#basic-conf)
-    - [Conf with DHCP parameters](#conf-with-dhcp-parameters)
     - [Conf with additional policies](#conf-with-additional-policies)
-	- [Sample auto-generated CNI configuration](#sample-auto-generated-cni-configuration)
+    - [Conf with DHCP parameters](#conf-with-dhcp-parameters)
+    - [Sample auto-generated CNI configuration](#sample-auto-generated-cni-configuration)
 
 ## Version
 
