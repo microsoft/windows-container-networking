@@ -14,20 +14,21 @@ import (
 	network "github.com/Microsoft/windows-container-networking/network"
 	cniSkel "github.com/containernetworking/cni/pkg/skel"
 	cniTypes "github.com/containernetworking/cni/pkg/types"
-	cniTypesCurr "github.com/containernetworking/cni/pkg/types/current"
+	cniTypesCurr "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/sirupsen/logrus"
 )
 
 const (
 	// CNI commands.
-	CmdAdd = "ADD"
-	CmdDel = "DEL"
+	CmdAdd   = "ADD"
+	CmdDel   = "DEL"
+	CmdCheck = "CHECK"
 
 	Internal = "internal"
 )
 
 // Supported CNI versions.
-var VersionsSupported = []string{"0.2.0", "0.3.0"}
+var VersionsSupported = []string{"0.2.0", "0.3.0", "0.4.0", "1.0.0"}
 
 type KVP struct {
 	Name  string          `json:"name"`
@@ -126,21 +127,26 @@ func (r *Result) String() string {
 type PluginApi interface {
 	Add(args *cniSkel.CmdArgs) error
 	Delete(args *cniSkel.CmdArgs) error
+	Check(args *cniSkel.CmdArgs) error
 }
 
 // CallPlugin calls the given CNI plugin through the internal interface.
 func CallPlugin(plugin PluginApi, cmd string, args *cniSkel.CmdArgs, config *NetworkConfig) (*cniTypes.Result, error) {
-	var err error
-
 	savedType := config.Ipam.Type
 	config.Ipam.Type = Internal
 	args.StdinData = config.Serialize()
 
 	// Call the plugin's internal interface.
-	if cmd == CmdAdd {
+	var err error
+	switch cmd {
+	case CmdAdd:
 		err = plugin.Add(args)
-	} else {
+	case CmdDel:
 		err = plugin.Delete(args)
+	case CmdCheck:
+		err = plugin.Check(args)
+	default:
+		err = fmt.Errorf("Called with unknown CNI verb %q", cmd)
 	}
 
 	config.Ipam.Type = savedType
@@ -375,7 +381,6 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 		ip.InterfaceIndex = 0
 
 		cIP := cniTypesCurr.IPConfig{
-			Version: ip.Version,
 			Address: net.IPNet{
 				IP:   ip.Address.IP,
 				Mask: ip.Address.Mask},
@@ -392,7 +397,6 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 		ip4.InterfaceIndex = 0
 
 		cIP4 := cniTypesCurr.IPConfig{
-			Version: ip4.Version,
 			Address: net.IPNet{
 				IP:   ip4.Address.IP,
 				Mask: ip4.Address.Mask},
@@ -407,7 +411,6 @@ func GetCurrResult(network *network.NetworkInfo, endpoint *network.EndpointInfo,
 			ip6.InterfaceIndex = 0
 
 			cIP6 := cniTypesCurr.IPConfig{
-				Version: ip6.Version,
 				Address: net.IPNet{
 					IP:   ip6.Address.IP,
 					Mask: ip6.Address.Mask},
