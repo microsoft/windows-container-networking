@@ -83,6 +83,11 @@ class Policy {
     }
 }
 
+class InfraParams {
+    [bool] $DhcpEnabled
+    [int] $DhcpCheckTimeout
+}
+
 class CniArgs {
     [string] $Name
     [string] $Type
@@ -94,8 +99,7 @@ class CniArgs {
     [string[]] $DnsServers
     [Policy[]] $AdditionalPolicies
     [bool] $SkipDefaultPolicies # Undocumented parameter to disable system policies
-    [bool] $DhcpEnabled
-    [int] $DhcpCheckTimeout
+    [InfraParams] $InfraParams
 
     CniArgs([System.Object] $cniArgs) {
         # Mandatory Parameters
@@ -110,20 +114,24 @@ class CniArgs {
         # Optional Parameters
         if ($cniArgs.psobject.Properties.name.Contains('Version')) {$this.Version = $cniArgs.Version} else {$this.Version = $script:DEFAULT_CNI_VERSION}
         if ($cniArgs.psobject.Properties.name.Contains('SkipDefaultPolicies')) {$this.SkipDefaultPolicies = $true} else {$this.SkipDefaultPolicies = $false}
-        if ($cniArgs.psobject.Properties.name.Contains('DhcpEnabled')) {$this.DhcpEnabled = $cniArgs.DhcpEnabled}
-        if ($this.DhcpEnabled -eq $true) {
-            $this.DhcpCheckTimeout = $script:DHCP_CHECK_TIMEOUT_MIN # Default value of 60 secs,  based on RFC 1541
-            if ($cniArgs.psobject.Properties.name.Contains('DhcpCheckTimeout')) {
-                if((-not (($cniArgs.DhcpCheckTimeout -ge $script:DHCP_CHECK_TIMEOUT_MIN) -and ($cniArgs.DhcpCheckTimeout -le $script:DHCP_CHECK_TIMEOUT_MAX))) -or (($cniArgs.DhcpCheckTimeout % 10) -ne 0)) {
-                    Write-Verbose -Message ("DHCP Check timeout should be a multiple of 10 and have a value between {0} - {1}. Invalid dhcp check timeout parameter: {2}" -f $script:DHCP_CHECK_TIMEOUT_MIN, $script:DHCP_CHECK_TIMEOUT_MAX, $cniArgs.DhcpCheckTimeout)
-                    throw ("Invalid DHCP Check timeout parameter: {0}" -f $cniArgs.DhcpCheckTimeout)
+        if ($cniArgs.psobject.Properties.name.Contains('InfraParams')) {
+            $cniArgsInfraParams = $cniArgs.InfraParams
+            $this.InfraParams = [InfraParams]::new()
+            if ($cniArgsInfraParams.psobject.Properties.name.Contains('DhcpEnabled')) {$this.InfraParams.DhcpEnabled = $cniArgsInfraParams.DhcpEnabled}
+            if ($this.InfraParams.DhcpEnabled -eq $true) {
+                $this.InfraParams.DhcpCheckTimeout = $script:DHCP_CHECK_TIMEOUT_MIN # Default value of 60 secs,  based on RFC 1541
+                if ($cniArgsInfraParams.psobject.Properties.name.Contains('DhcpCheckTimeout')) {
+                    if((-not (($cniArgsInfraParams.DhcpCheckTimeout -ge $script:DHCP_CHECK_TIMEOUT_MIN) -and ($cniArgsInfraParams.DhcpCheckTimeout -le $script:DHCP_CHECK_TIMEOUT_MAX))) -or (($cniArgsInfraParams.DhcpCheckTimeout % 10) -ne 0)) {
+                        Write-Verbose -Message ("DHCP Check timeout should be a multiple of 10 and have a value between {0} - {1}. Invalid dhcp check timeout parameter: {2}" -f $script:DHCP_CHECK_TIMEOUT_MIN, $script:DHCP_CHECK_TIMEOUT_MAX, $cniArgsInfraParams.DhcpCheckTimeout)
+                        throw ("Invalid DHCP Check timeout parameter: {0}" -f $cniArgsInfraParams.DhcpCheckTimeout)
+                    }
+                    $this.InfraParams.DhcpCheckTimeout = $cniArgsInfraParams.DhcpCheckTimeout
                 }
-                $this.DhcpCheckTimeout = $cniArgs.DhcpCheckTimeout
-            }
-        } else {
-            if ($cniArgs.psobject.Properties.name.Contains('DhcpCheckTimeout')) {
-                Write-Verbose -Message ("DHCP Check timeout should be a configured only when DhcpEnabled is set.")
-                throw "Invalid DHCP Check timeout parameter should be configured only when DhcpEnabled parameter is set. Missing parameter DhcpEnabled."
+            } else {
+                if ($cniArgsInfraParams.psobject.Properties.name.Contains('DhcpCheckTimeout')) {
+                    Write-Verbose -Message ("DHCP Check timeout should be a configured only when DhcpEnabled is set.")
+                    throw "Invalid DHCP Check timeout parameter should be configured only when DhcpEnabled parameter is set. Missing parameter DhcpEnabled."
+                }
             }
         }
         if ($cniArgs.psobject.Properties.name.Contains('AdditionalPolicies')) {

@@ -6,5 +6,5 @@
     "InfraPrefix": "10.0.0.0/24",
     "DnsServers": ["168.63.129.16"],
     "ManagementIp": "10.0.0.10",
-    "DhcpCheckTimeout": 80
+    "InfraParams": { "DhcpCheckTimeout": 80 }
 }
