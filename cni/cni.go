@@ -342,9 +342,9 @@ func (config *NetworkConfig) GetEndpointInfo(
 	runtimeConf := config.RuntimeConfig
 	logrus.Debugf("Parsing port mappings from %+v", runtimeConf.PortMappings)
 
-	flags := uint32(0)
+	flags := hcn.NatFlagsNone
 	if config.OptionalFlags.LocalRoutePortMapping {
-		flags = 1
+		flags = hcn.NatFlagsLocalRoutedVip
 	}
 	var aclPriority uint16 = 1000
 	for _, mapping := range runtimeConf.PortMappings {
@@ -354,6 +354,16 @@ func (config *NetworkConfig) GetEndpointInfo(
 		}
 		logrus.Debugf("Created raw policy from mapping: %+v --- %+v", mapping, policy)
 		epInfo.Policies = append(epInfo.Policies, policy)
+
+		if config.OptionalFlags.EnableDualStack {
+			v6flags := flags | hcn.NatFlagsIPv6
+			v6policy, err := network.GetPortMappingPolicy(mapping.HostPort, mapping.ContainerPort, mapping.Protocol, "", v6flags)
+			if err != nil {
+				return nil, fmt.Errorf("failed during GetEndpointInfo from netconf: %v", err)
+			}
+			logrus.Debugf("Created raw V6 policy from mapping: %+v --- %+v", mapping, v6policy)
+			epInfo.Policies = append(epInfo.Policies, v6policy)
+		}
 
 		if config.OptionalFlags.AllowAclPortMapping {
 			pol, err := getInACLRule(&mapping, aclPriority)
