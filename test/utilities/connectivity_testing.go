@@ -88,32 +88,52 @@ func CreateNetConfIpam(cidr string) cni.IpamConfig {
 	return testIpam
 }
 
-func CreateNetworkConf(cniVersion string, name string, pluginType string,
-	dns *cniTypes.DNS, addArgs []cni.KVP, gatewayPrefix string) *cni.NetworkConfig {
+func CreateNetworkConf(t *testing.T, cniVersion string, name string, pluginType hcn.NetworkType,
+	dns *cniTypes.DNS, addArgs []cni.KVP, gatewayPrefix string) (*cni.NetworkConfig, error) {
+
+	mappedType, err := cni.MapCniTypeToHcnType(pluginType)
+	if err != nil {
+		return nil, err
+	}
+
+	if pluginType != mappedType {
+		t.Logf("WARN: supplied network plugin type %q was mapped to HCN network type %q", pluginType, mappedType)
+	}
+
 	netConf := cni.NetworkConfig{
 		CniVersion:     cniVersion,
 		Name:           name,
 		Ipam:           CreateNetConfIpam(gatewayPrefix),
-		Type:           pluginType,
+		Type:           mappedType,
 		DNS:            *dns,
 		AdditionalArgs: addArgs,
 	}
-	return &netConf
+	return &netConf, nil
 }
 
 func CreateDualStackNetworkConf(
+	t *testing.T,
 	cniVersion string,
 	name string,
-	pluginType string,
+	pluginType hcn.NetworkType,
 	dns *cniTypes.DNS,
 	addArgs []cni.KVP,
 	gatewayPrefixv4 string,
-	gatewayPrefixv6 string) *cni.NetworkConfig {
+	gatewayPrefixv6 string) (*cni.NetworkConfig, error) {
+
+	mappedType, err := cni.MapCniTypeToHcnType(pluginType)
+	if err != nil {
+		return nil, err
+	}
+
+	if pluginType != mappedType {
+		t.Logf("WARN: supplied network plugin type %q was mapped to HCN network type %q", pluginType, mappedType)
+	}
 
 	netConf := cni.NetworkConfig{
 		CniVersion:     cniVersion,
 		Name:           name,
-		Type:           pluginType,
+		Type:           mappedType,
 		DNS:            *dns,
 		AdditionalArgs: addArgs,
 	}
@@ -139,7 +159,7 @@ func CreateDualStackNetworkConf(
 
 	netConf.AdditionalRoutes = append(netConf.AdditionalRoutes, testRoute)
 
-	return &netConf
+	return &netConf, nil
 }
 
 func GetDefaultIpams() []hcn.Ipam {
@@ -289,14 +309,24 @@ func CreateGatewayEp(t *testing.T, networkId string, ipAddress string, ipv6Adres
 	return nil
 }
 
-func CreateTestNetwork(name string, netType string, ipams []hcn.Ipam, tryGetNetAdapter bool) *hcn.HostComputeNetwork {
+func CreateTestNetwork(t *testing.T, name string, netType string, ipams []hcn.Ipam, tryGetNetAdapter bool) *hcn.HostComputeNetwork {
+	hcnNetType := hcn.NetworkType(netType)
+	mappedType, err := cni.MapCniTypeToHcnType(hcnNetType)
+	if err != nil {
+		t.Errorf("Failed to map testing network type %q to HCN network type: %v", netType, err)
+	}
+
+	if mappedType != hcnNetType {
+		t.Logf("WARN: testing network type %q was mapped to HCN network type %q", netType, mappedType)
+	}
+
 	network := &hcn.HostComputeNetwork{
 		SchemaVersion: hcn.SchemaVersion{
 			Major: 2,
 			Minor: 0,
 		},
 		Name:  name,
-		Type:  hcn.NetworkType(netType),
+		Type:  mappedType,
 		Ipams: ipams,
 	}
 
@@ -312,7 +342,6 @@ func CreateTestNetwork(name string, netType string, ipams []hcn.Ipam, tryGetNetA
 func MakeTestStruct(
 	t *testing.T,
 	testNetwork *hcn.HostComputeNetwork,
-	pluginType string,
 	epPols bool,
 	needGW bool,
 	cid string,
@@ -352,11 +381,15 @@ func MakeTestStruct(
 	var netConf *cni.NetworkConfig
 
 	if !testDualStack {
-		netConf = CreateNetworkConf(defaultCniVersion, testNetwork.Name, pluginType, dns, addArgs, netConfPrefix)
+		if netConf, err = CreateNetworkConf(t, defaultCniVersion, testNetwork.Name, testNetwork.Type, dns, addArgs, netConfPrefix); err != nil {
+			t.Errorf("Failed to create testing network config: %v", err)
+			return nil
+		}
 	} else {
-
 		netConfPrefixv6 := "fd00::101/64"
-		netConf = CreateDualStackNetworkConf(defaultCniVersion, testNetwork.Name, pluginType, dns, addArgs, netConfPrefix, netConfPrefixv6)
+		if netConf, err = CreateDualStackNetworkConf(t, defaultCniVersion, testNetwork.Name, testNetwork.Type, dns, addArgs, netConfPrefix, netConfPrefixv6); err != nil {
+			return nil
+		}
 
 	}
 	netJson, _ := json.Marshal(netConf)
