@@ -71,6 +71,7 @@ type NetworkConfig struct {
 	Type             string           `json:"type"` // As per SPEC, Type is Name of the Binary
 	Ipam             IpamConfig       `json:"ipam"`
 	DNS              cniTypes.DNS     `json:"dns"`
+	MacAddress       string           `json:"macAddress"`
 	OptionalFlags    OptionalFlags    `json:"optionalFlags"`
 	RuntimeConfig    RuntimeConfig    `json:"runtimeConfig"`
 	AdditionalRoutes []cniTypes.Route `json:"additionalRoutes"`
@@ -320,7 +321,8 @@ func (config *NetworkConfig) GetEndpointInfo(
 		NamespaceID: netNs,
 		ContainerID: containerID,
 	}
-
+    epInfo.MacAddress,_ = net.ParseMAC(config.MacAddress)
+	epInfo.IPAddress = net.ParseIP(config.Ipam.Address).To4()
 	epInfo.DNS = network.DNSInfo{
 		Domain:      networkInfo.DNS.Domain,
 		Nameservers: networkInfo.DNS.Nameservers,

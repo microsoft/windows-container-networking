@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"github.com/Microsoft/windows-container-networking/common"
 	"net"
+	"strings"
 
 	"github.com/Microsoft/hcsshim/hcn"
 )
@@ -62,6 +63,7 @@ func (endpoint *EndpointInfo) GetHostComputeEndpoint() *hcn.HostComputeEndpoint 
 	macAddr := ""
 	if endpoint.MacAddress != nil {
 		macAddr = endpoint.MacAddress.String()
+		macAddr = strings.Join(strings.Split(macAddr, ":"), "-")
 	}
 
 	gwAddr := ""
