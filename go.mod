@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/Microsoft/go-winio v0.5.2
-	github.com/Microsoft/hcsshim v0.8.25
+	github.com/Microsoft/hcsshim v0.8.26
 	github.com/containerd/go-runc v1.0.0
 	github.com/containernetworking/cni v1.1.2
 	github.com/onsi/ginkgo/v2 v2.9.1
