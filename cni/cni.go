@@ -70,6 +70,7 @@ type NetworkConfig struct {
 	Name             string           `json:"name"` // Name is the Network Name. We would also use this as the Type of HNS Network
 	Type             string           `json:"type"` // As per SPEC, Type is Name of the Binary
 	Ipam             IpamConfig       `json:"ipam"`
+	Ipamv6           IpamConfig       `json:"ipamv6"`
 	DNS              cniTypes.DNS     `json:"dns"`
 	OptionalFlags    OptionalFlags    `json:"optionalFlags"`
 	RuntimeConfig    RuntimeConfig    `json:"runtimeConfig"`
@@ -223,6 +224,30 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) (ninfo *network
 			Policies:       []network.Policy{},
 		}
 		subnets = append(subnets, subnet)
+	}
+
+	if config.OptionalFlags.EnableDualStack && config.Ipamv6.Subnet != "" {
+		ip, s, _ := net.ParseCIDR(config.Ipamv6.Subnet)
+		if ip.To4() == nil && len(ip) == net.IPv6len {
+			gatewayIP := make(net.IP, len(ip))
+			copy(gatewayIP, ip)
+			// Find the first IP in the subnet (usually the gateway)
+			for i := len(gatewayIP) - 1; i >= 0; i-- {
+				gatewayIP[i]++
+				if gatewayIP[i] != 0 {
+					break
+				}
+			}
+			if config.Ipamv6.Routes != nil && len(config.Ipamv6.Routes) > 0 && config.Ipamv6.Routes[0].GW != nil {
+				gatewayIP = config.Ipamv6.Routes[0].GW
+			}
+			subnet := network.SubnetInfo{
+				AddressPrefix:  *s,
+				GatewayAddress: gatewayIP,
+				Policies:       []network.Policy{},
+			}
+			subnets = append(subnets, subnet)
+		}
 	}
 
 	if len(config.DNS.Search) > 0 {
