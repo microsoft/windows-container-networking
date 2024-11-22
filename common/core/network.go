@@ -105,6 +105,12 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		k8sNamespace = string(podConfig.K8S_POD_NAMESPACE)
 	}
 
+	epConfig, err := cni.ParseCniEndpointArgs(args.Args)
+	if err != nil {
+		logrus.Errorf("[cni-net] Failed to parse endpoint args, err:%v", err)
+		return err
+	}
+
 	// Parse network configuration from stdin.
 	cniConfig, err := cni.ParseNetworkConfig(args.StdinData)
 	if err != nil {
@@ -133,6 +139,15 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		return err
 	}
 
+	if epConfig.MAC != "" {
+		hwAddr, err := net.ParseMAC(string(epConfig.MAC))
+		if err != nil {
+			logrus.Errorf("[cni-net] Failed to parse MAC addres '%s', err:%v", epConfig.MAC, err)
+			return err
+		}
+
+		epInfo.MacAddress = hwAddr
+	}
 	epInfo.DualStack = cniConfig.OptionalFlags.EnableDualStack
 
 	// Check for missing namespace

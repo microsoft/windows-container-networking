@@ -105,6 +105,11 @@ type K8SPodEnvArgs struct {
 	K8S_POD_INFRA_CONTAINER_ID cniTypes.UnmarshallableString `json:"K8S_POD_INFRA_CONTAINER_ID,omitempty"`
 }
 
+type EndpointArgs struct {
+	cniTypes.CommonArgs
+	MAC cniTypes.UnmarshallableString
+}
+
 type OptionalFlags struct {
 	LocalRoutePortMapping       bool `json:"localRoutedPortMapping"`
 	AllowAclPortMapping         bool `json:"allowAclPortMapping"`
@@ -192,6 +197,17 @@ func ParseCniArgs(args string) (*K8SPodEnvArgs, error) {
 	}
 
 	return &podConfig, nil
+}
+
+// ParseCniEndpointArgs
+func ParseCniEndpointArgs(args string) (*EndpointArgs, error) {
+	epArgs := EndpointArgs{}
+	err := cniTypes.LoadArgs(args, &epArgs)
+	if err != nil {
+		return nil, err
+	}
+
+	return &epArgs, nil
 }
 
 // Serialize marshals a network configuration to bytes.
