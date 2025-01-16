@@ -30,6 +30,25 @@ const (
 // Supported CNI versions.
 var VersionsSupported = []string{"0.2.0", "0.3.0", "0.4.0", "1.0.0"}
 
+// Aliases for the Windows CNI plugin binary names:
+const (
+	NatPluginName        = "nat"
+	SdnBridgePluginName  = "sdnbridge"
+	SdnOverlayPluginName = "sdnoverlay"
+	// SdnTunnelPluginName = "sdntunnel"
+)
+
+// NOTE(aznashwan): this mapping between the names of binary releases of the WinCNI
+// plugins and the underlying HCN network types is required for
+// backwards-compatibility with callers which rely on the old plugin naming schemes.
+// See: https://github.com/microsoft/windows-container-networking/issues/57
+var CniPluginNameToHcnTypeMap map[string]hcn.NetworkType = map[string]hcn.NetworkType{
+	NatPluginName:        hcn.NAT,
+	SdnBridgePluginName:  hcn.L2Bridge,
+	SdnOverlayPluginName: hcn.Overlay,
+	// SdnTunnelPluginName: network.L2Tunnel,
+}
+
 type KVP struct {
 	Name  string          `json:"name"`
 	Value json.RawMessage `json:"value"`
@@ -67,8 +86,8 @@ type IpamConfig struct {
 // Defined as per https://github.com/containernetworking/cni/blob/master/SPEC.md
 type NetworkConfig struct {
 	CniVersion       string           `json:"cniVersion"`
-	Name             string           `json:"name"` // Name is the Network Name. We would also use this as the Type of HNS Network
-	Type             string           `json:"type"` // As per SPEC, Type is Name of the Binary
+	Name             string           `json:"name"` // Name is the Network Name.
+	Type             hcn.NetworkType  `json:"type"` // As per SPEC, Type is Name of the Binary
 	Ipam             IpamConfig       `json:"ipam"`
 	DNS              cniTypes.DNS     `json:"dns"`
 	OptionalFlags    OptionalFlags    `json:"optionalFlags"`
@@ -180,6 +199,12 @@ func ParseNetworkConfig(b []byte) (*NetworkConfig, error) {
 		return nil, err
 	}
 
+	hcnType, err := MapCniTypeToHcnType(config.Type)
+	if err != nil {
+		return nil, err
+	}
+	config.Type = hcnType
+
 	return &config, nil
 }
 
@@ -252,7 +277,7 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) (ninfo *network
 	ninfo = &network.NetworkInfo{
 		ID:            config.Name,
 		Name:          config.Name,
-		Type:          network.NetworkType(config.Type),
+		Type:          config.Type,
 		Subnets:       subnets,
 		InterfaceName: "",
 		DNS:           dnsSettings,
@@ -493,4 +518,24 @@ func GetInterface(endpoint *network.EndpointInfo) Interface {
 		MacAddress: endpoint.MacAddress,
 		Sandbox:    "",
 	}
+}
+
+// Maps the given CNI network config "type" field into the correct HNS network type.
+func MapCniTypeToHcnType(typeArg hcn.NetworkType) (hcn.NetworkType, error) {
+	var mappedType *hcn.NetworkType = nil
+	for binaryName, netType := range CniPluginNameToHcnTypeMap {
+		if string(typeArg) == binaryName || typeArg == netType {
+			mappedType = &netType
+			break
+		}
+	}
+
+	if mappedType == nil {
+		return hcn.NetworkType(""), fmt.Errorf("Unsupported CNI config 'type' %q. Options are the keys/values from: %v", typeArg, CniPluginNameToHcnTypeMap)
+	}
+	if *mappedType != typeArg {
+		logrus.Warnf("Provided CNI config 'type' %q will be mapped to %q", typeArg, *mappedType)
+	}
+
+	return *mappedType, nil
 }
