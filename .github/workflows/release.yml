@@ -117,7 +117,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fail_on_unmatched_files: true
-          name: windows-cni ${{ needs.build.outputs.version }}
+          name: v${{ needs.build.outputs.version }}
           draft: false
           prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
           body_path: ./builds/${{ needs.build.outputs.release_notes_artifact }}/release-notes.md
