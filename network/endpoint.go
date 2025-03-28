@@ -67,12 +67,11 @@ func (endpoint *EndpointInfo) GetHostComputeEndpoint() *hcn.HostComputeEndpoint 
 	gwAddr := ""
 	if endpoint.Gateway != nil {
 		gwAddr = endpoint.Gateway.String()
+		routes = append(routes, hcn.Route{
+			NextHop:           gwAddr,
+			DestinationPrefix: "0.0.0.0/0",
+		})
 	}
-
-	routes = append(routes, hcn.Route{
-		NextHop:           gwAddr,
-		DestinationPrefix: "0.0.0.0/0",
-	})
 
 	if endpoint.Gateway6 != nil {
 		gwAddr6 := endpoint.Gateway6.String()
