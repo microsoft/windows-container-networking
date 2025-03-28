@@ -72,3 +72,9 @@ jobs:
         run: |
           mingw32-make.exe test
         working-directory: src/github.com/Microsoft/windows-container-networking
+
+      - name: Test Network Deployment Script
+        shell: pwsh
+        run: |
+          ./script/networksetup/networkDeploy.ps1
+        working-directory: src/github.com/Microsoft/windows-container-networking

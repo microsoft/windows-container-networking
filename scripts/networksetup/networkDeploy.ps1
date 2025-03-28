@@ -889,7 +889,7 @@ try {
     Set-StrictMode -Off
 
     try {
-        # if this is called from another PS script, then `$MyInvocation.Line` will the literall line value,
+        # if this is called from another PS script, then `$MyInvocation.Line` will the literal line value,
         # not include line continuations, and not fully expanded variables
         # see: https://github.com/PowerShell/PowerShell/pull/19027
         Write-Verbose "Invocation: $((Get-PSCallStack)[1].Position.Text.Trim())"
