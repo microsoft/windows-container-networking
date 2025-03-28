@@ -39,12 +39,12 @@ sdnoverlay: $(OUTPUTDIR)/sdnoverlay
 nat: $(OUTPUTDIR)/nat
 all: sdnbridge sdnoverlay nat
 	cp scripts/autogencniconf/generateCNIConfig.ps1 out/
+	cp scripts/networksetup/networkDeploy.ps1 out/
 
 # Containerized Build Environment
 .PHONY: dev
 dev:
 	$(DEV_ENV_CMD_IT) bash
-
 
 # Clean all build artifacts.
 .PHONY: clean
