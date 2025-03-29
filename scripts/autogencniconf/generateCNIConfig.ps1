@@ -70,6 +70,7 @@ enum WKOptionalKeysFlag {
     Ipam = 2 #[WKOptionalKeysFlag]::NoWKOptKeys -shl 1
     Dns = 4 #[WKOptionalKeysFlag]::NoWKOptKeys -shl 2
     MaxFlags = 8 #[WKOptionalKeysFlag]::NoWKOptKeys -shl 3
+    Ipamv6 = 16 #[WKOptionalKeysFlag]::NoWKOptKeys -shl 4
 }
 
 class Policy {
@@ -181,7 +182,7 @@ class CniConf {
         # Set optional fields to be populated
         $this.OptKeyParams = $this.OptKeyParams -bor [OptionalKeysFlag]::Capabilities -bor [OptionalKeysFlag]::Master
         # Set wellknown optional fields to be populated
-        $this.WKOptKeyParams = $this.WKOptKeyParams -bor [WKOptionalKeysFlag]::Dns -bor [WKOptionalKeysFlag]::Ipam
+        $this.WKOptKeyParams = $this.WKOptKeyParams -bor [WKOptionalKeysFlag]::Dns -bor [WKOptionalKeysFlag]::Ipam -bor [WKOptionalKeysFlag]::Ipamv6
     }
 
     EnsureMandatoryParametersPresent([System.Object] $cniArgs) {
@@ -243,6 +244,17 @@ class CniConf {
                     $ipamFields.Add('routes', $routes)
 
                     $this.CniBase.Add('ipam', $ipamFields)
+                }
+
+                ([WKOptionalKeysFlag]::Ipamv6).value__ {
+                    $ipamFields = [System.Collections.Specialized.OrderedDictionary]::new()
+                    $ipamFields.Add('environment', 'azure')
+                    $ipamFields.Add('subnet', $this.Args.Subnet)
+                    $routes = @()
+                    $routes += (@{'GW'=$this.Args.Gateway;})
+                    $ipamFields.Add('routes', $routes)
+
+                    $this.CniBase.Add('ipamv6', $ipamFields)
                 }
 
                 ([WKOptionalKeysFlag]::Dns).value__ {
