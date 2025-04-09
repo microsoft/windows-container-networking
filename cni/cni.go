@@ -199,7 +199,6 @@ func ParseCniArgs(args string) (*K8SPodEnvArgs, error) {
 	return &podConfig, nil
 }
 
-// ParseCniEndpointArgs
 func ParseCniEndpointArgs(args string) (*EndpointArgs, error) {
 	epArgs := EndpointArgs{}
 	err := cniTypes.LoadArgs(args, &epArgs)
