@@ -138,7 +138,7 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		if epConfig.MAC != "" {
 			hwAddr, err := net.ParseMAC(string(epConfig.MAC))
 			if err != nil {
-				logrus.Errorf("[cni-net] Failed to parse MAC addres '%s', err:%v", epConfig.MAC, err)
+				logrus.Errorf("[cni-net] Failed to parse MAC address '%s', err:%v", epConfig.MAC, err)
 				return err
 			}
 
