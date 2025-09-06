@@ -237,7 +237,7 @@ func (pt *PluginUnitTest) RunDelTest(t *testing.T, ci *ContainerInfo) error {
 func (pt *PluginUnitTest) RunUnitTest(t *testing.T) {
 	t.Logf("Running Unit Test for case: %v", pt.CniCmdArgs)
 	cid := fmt.Sprintf("%vTestUnitContainer", string(pt.Network.Type))
-	imageName := ImageNano
+	imageName := GetImageNano()
 	if pt.ImageToUse != "" {
 		imageName = pt.ImageToUse
 	}
@@ -267,7 +267,7 @@ func (pt *PluginUnitTest) RunUnitTest(t *testing.T) {
 
 func (pt *PluginUnitTest) RunBasicConnectivityTest(t *testing.T, numContainers int) {
 	t.Logf("Start Connectivity Test")
-	imageName := ImageNano
+	imageName := GetImageNano()
 	if pt.ImageToUse != "" {
 		imageName = pt.ImageToUse
 	}

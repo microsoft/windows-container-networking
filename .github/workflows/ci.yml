@@ -23,10 +23,9 @@ jobs:
     name: Run Checks
     runs-on: ${{ matrix.os }}
     strategy:
-      # NOTE(aznashwan): this will permit the tests to finish on all OSes.
       fail-fast: false
       matrix:
-        os: ["windows-2019", "windows-2022"]
+        os: ["windows-2022"]
 
     steps:
       - name: Checkout Code
@@ -68,7 +67,7 @@ jobs:
 
       - name: Test
         env:
-          ImageToUse: ${{ matrix.os == 'windows-2022' && 'mcr.microsoft.com/windows/nanoserver:ltsc2022' || ''  }}
+          ImageToUse: mcr.microsoft.com/windows/nanoserver:ltsc2022
         run: |
           mingw32-make.exe test
         working-directory: src/github.com/Microsoft/windows-container-networking

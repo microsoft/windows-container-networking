@@ -70,4 +70,8 @@ vendor :
 release : all
 	mkdir -p release; \
 	zip -jrmv release/windows-container-networking-cni-amd64-$(VERSION).zip out; \
-	for file in ./release/*.zip ; do shasum -a 512 $$file > $$file.sha512 ; done
+	for file in ./release/*.zip ; do \
+		echo "Generated release file: $$file"; \
+		shasum -a 256 $$file > $$file.sha256; \
+		shasum -a 512 $$file > $$file.sha512; \
+	done

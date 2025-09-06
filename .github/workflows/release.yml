@@ -38,9 +38,11 @@ jobs:
         id: getrelease
         run: |
           ref=${{ github.ref }}
-          version="${ref#refs/tags/v}"
-          # If we can't extract the version from the tag, use the commit ID.
-          if [ "$ref" = "$version" ]; then
+          # Extract version from tag, preserving the 'v' prefix for consistency
+          if [[ "$ref" =~ ^refs/tags/v[0-9] ]]; then
+            version="${ref#refs/tags/}"
+          else
+            # Fallback to commit ID if not a version tag
             version=$(git show -s --format=%H | cut -c -12)
           fi
           echo "Determined version: ${version}"
@@ -112,14 +114,75 @@ jobs:
         with:
           path: builds
 
+      - name: Validate Release Artifacts
+        run: |
+          echo "Validating release artifacts..."
+          ls -la builds/${{ needs.build.outputs.binaries_artifact }}/
+
+          # Check that the zip file follows the expected naming convention
+          expected_zip="windows-container-networking-cni-amd64-${{ needs.build.outputs.version }}.zip"
+          if [ ! -f "builds/${{ needs.build.outputs.binaries_artifact }}/$expected_zip" ]; then
+            echo "Error: Expected zip file $expected_zip not found!"
+            echo "Available files:"
+            ls -la builds/${{ needs.build.outputs.binaries_artifact }}/
+            exit 1
+          fi
+
+          # Verify checksums exist
+          for file in builds/${{ needs.build.outputs.binaries_artifact }}/*.zip; do
+            if [ ! -f "$file.sha256" ]; then
+              echo "Error: SHA256 checksum missing for $file"
+              exit 1
+            fi
+            if [ ! -f "$file.sha512" ]; then
+              echo "Error: SHA512 checksum missing for $file"
+              exit 1
+            fi
+          done
+
+          echo "All artifacts validated successfully"
+
+      - name: Check for Existing Release
+        id: check_release
+        run: |
+          # Check if release already exists
+          if gh release view "${{ needs.build.outputs.version }}" >/dev/null 2>&1; then
+            echo "Release ${{ needs.build.outputs.version }} already exists!"
+            echo "Please delete the existing release first or use a different version."
+            exit 1
+          fi
+          echo "Release ${{ needs.build.outputs.version }} does not exist, proceeding..."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Display Release Information
+        run: |
+          echo "Version: ${{ needs.build.outputs.version }}"
+          echo "Tag: ${{ github.ref }}"
+          echo "Release Name: windows-cni ${{ needs.build.outputs.version }}"
+          echo ""
+          for file in builds/${{ needs.build.outputs.binaries_artifact }}/*; do
+            if [ -f "$file" ]; then
+              echo "File: $(basename "$file")"
+              echo "Size: $(stat -c%s "$file") bytes"
+              if [[ "$file" == *.zip ]]; then
+                echo "SHA256: $(cat "$file.sha256" 2>/dev/null | awk '{print $1}')"
+                echo "SHA512: $(cat "$file.sha512" 2>/dev/null | awk '{print $1}')"
+              fi
+              echo "---"
+            fi
+          done
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fail_on_unmatched_files: true
           name: windows-cni ${{ needs.build.outputs.version }}
+          tag_name: ${{ needs.build.outputs.version }}
           draft: false
           prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          generate_release_notes: true
           body_path: ./builds/${{ needs.build.outputs.release_notes_artifact }}/release-notes.md
           files: |
             builds/${{ needs.build.outputs.binaries_artifact }}/*
