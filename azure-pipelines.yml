@@ -22,7 +22,7 @@ steps:
     mkdir tools
     echo "%GOBIN%"
     echo "%GOROOT%/bin"
-    docker pull mcr.microsoft.com/windows/nanoserver:1809
+    docker pull mcr.microsoft.com/windows/nanoserver:ltsc2022
     ipconfig /all
     go env
   displayName: 'Set up the Go workspace'

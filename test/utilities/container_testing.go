@@ -1,6 +1,7 @@
 package util
 
 import (
+	"os"
 	"testing"
 
 	"github.com/Microsoft/hcsshim"
@@ -8,10 +9,14 @@ import (
 	contTest "github.com/Microsoft/windows-container-networking/test/container"
 )
 
-const (
-	ImageNano = "mcr.microsoft.com/windows/nanoserver:1809"
-	ImageWsc  = "microsoft/windowsservercore"
-)
+// GetImageNano returns the appropriate nanoserver image based on environment
+func GetImageNano() string {
+	if image := os.Getenv("ImageToUse"); image != "" {
+		return image
+	}
+	// Default fallback to ltsc2022 if no environment variable is set
+	return "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+}
 
 type ContainerInfo struct {
 	ContainerId string
