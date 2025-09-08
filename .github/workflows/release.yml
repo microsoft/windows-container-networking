@@ -10,7 +10,7 @@ on:
 name: Release
 
 env:
-  GO_VERSION: "1.21.0"
+  GO_VERSION: 1.21.1
   BINARY_ARTIFACT_NAME: "windows-cni-binaries"
   RELEASE_NOTES_ARTIFACT_NAME: "windows-cni-release-notes"
 
@@ -32,7 +32,6 @@ jobs:
         uses: actions/checkout@v3
         with:
           ref: ${{ github.ref }}
-          path: src/github.com/Microsoft/windows-container-networking
 
       - name: Get Release Version
         id: getrelease
@@ -47,7 +46,6 @@ jobs:
           fi
           echo "Determined version: ${version}"
           echo "version=${version}" >> $GITHUB_OUTPUT
-        working-directory: src/github.com/Microsoft/windows-container-networking
 
       - name: Check Tag Signed
         run: |
@@ -58,7 +56,6 @@ jobs:
           } || {
               echo "Tag ${releasever} is signed."
           }
-        working-directory: src/github.com/Microsoft/windows-container-networking
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -69,25 +66,23 @@ jobs:
         shell: bash
         run: |
           make release "VERSION=${{ steps.getrelease.outputs.version }}"
-        working-directory: src/github.com/Microsoft/windows-container-networking
 
       - name: Make Release Notes
         run: |
           version="${{ steps.getrelease.outputs.version }}"
           git tag -l ${version#refs/tags/} -n20000 | tail -n +3 | cut -c 5- >release-notes.md
-        working-directory: src/github.com/Microsoft/windows-container-networking
 
       - name: Upload Release Notes
         uses: actions/upload-artifact@v3
         with:
           name: ${{ env.RELEASE_NOTES_ARTIFACT_NAME }}-${{ steps.getrelease.outputs.version }}
-          path: src/github.com/Microsoft/windows-container-networking/release-notes.md
+          path: release-notes.md
 
       - name: Upload Binary Release
         uses: actions/upload-artifact@v3
         with:
           name: ${{ env.BINARY_ARTIFACT_NAME }}-${{ steps.getrelease.outputs.version }}
-          path: src/github.com/Microsoft/windows-container-networking/release/*
+          path: release/*
 
   ci:
     name: CI

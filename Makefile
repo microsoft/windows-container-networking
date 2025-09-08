@@ -21,10 +21,12 @@ OUTPUTDIR = out
 # Containerized build parameters.
 # Based on Azure/aks-engine Makefile
 REPO_PATH := github.com/Microsoft/windows-container-networking
-DEV_ENV_IMAGE := golang:1.12.2
+DEV_ENV_IMAGE := golang:1.21
 DEV_ENV_WORK_DIR := /go/src/${REPO_PATH}
 DEV_ENV_OPTS := --rm -v ${CURDIR}:${DEV_ENV_WORK_DIR} -w ${DEV_ENV_WORK_DIR} ${DEV_ENV_VARS}
-DEV_ENV_CMD := docker run ${DEV_ENV_OPTS} ${DEV_ENV_IMAGE}
+# Multi-stage Dockerfile that creates the final image from golang:1.21.1
+container:
+	docker build -f Dockerfile -t $(CONTAINER_IMAGE):$(CONTAINER_IMAGE_TAG) .
 DEV_ENV_CMD_IT := docker run -it ${DEV_ENV_OPTS} ${DEV_ENV_IMAGE}
 DEV_CMD_RUN := docker run ${DEV_ENV_OPTS}
 
@@ -38,7 +40,6 @@ sdnbridge: $(OUTPUTDIR)/sdnbridge
 sdnoverlay: $(OUTPUTDIR)/sdnoverlay
 nat: $(OUTPUTDIR)/nat
 all: sdnbridge sdnoverlay nat
-	cp scripts/autogencniconf/generateCNIConfig.ps1 out/
 
 # Containerized Build Environment
 .PHONY: dev
