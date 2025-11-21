@@ -12,27 +12,54 @@ This repo contains plugins meant for testing/development of latest windows featu
 * `sdnbridge`
 
 ## Releases
-Create a checkpoint for a release using tags
 
-`git tag -a v0.3.1 -m "includes intent-based cni config generation script"`
+### Creating a New Release
 
-`git push origin v0.3.1`
+Releases are fully automated via GitHub Actions. To create a new release:
 
+1. **Ensure all changes are committed and tests pass:**
+   ```bash
+   make test
+   ```
 
+2. **Update CHANGELOG.md** with the new version and changes
 
-The below make command creates a sha signed package under the release directory.
+3. **Create a GPG-signed annotated tag:**
+   ```bash
+   git tag -s v0.x.x -m "Release v0.x.x
 
-`make release`
+   Brief description of changes.
+   See CHANGELOG.md for full details."
+   ```
+   
+   **Important:** Always use GPG-signed tags (`-s` flag) for releases. This ensures authenticity and prevents tampering.
 
+4. **Push the tag:**
+   ```bash
+   git push origin v0.x.x
+   ```
 
-These packages need to be uploaded manually while publishing a release from GitHub portal.
+5. **Monitor the release:** The [GitHub Actions workflow](https://github.com/microsoft/windows-container-networking/actions) will automatically:
+   - Build binaries for all platforms
+   - Run CI tests
+   - Generate SHA256/SHA512 checksums
+   - Create and publish the GitHub release
 
-To publish a release, go to the [Releases](https://github.com/microsoft/windows-container-networking/releases) section in the portal, and click on 'Draft a new release'. 
+### Release Artifacts
 
-Choose the tag created, and upload the packages. Make sure to add context about the release and list down the major changes. Hit 'Publish Release' and you are done.
+Each release includes:
+- `windows-container-networking-cni-amd64-v0.x.x.zip` - Binary package
+- `windows-container-networking-cni-amd64-v0.x.x.zip.sha256` - SHA256 checksum
+- `windows-container-networking-cni-amd64-v0.x.x.zip.sha512` - SHA512 checksum
 
+### Security Policy
 
-* ToDo: Automated Release
+- **Never modify published releases** - If there's an issue, create a new patch version
+- **Always use GPG-signed tags** - Ensures release authenticity
+- **Verify checksums** - All artifacts include cryptographic checksums
+- **Tag format** - Always use `vMAJOR.MINOR.PATCH` format (e.g., `v0.3.2`)
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## Build
 These plugins are made for windows and need to be compiled for windows. However, you can cross-compile them from Linux.
