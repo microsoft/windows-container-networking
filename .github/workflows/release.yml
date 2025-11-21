@@ -73,13 +73,13 @@ jobs:
           git tag -l ${version#refs/tags/} -n20000 | tail -n +3 | cut -c 5- >release-notes.md
 
       - name: Upload Release Notes
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.RELEASE_NOTES_ARTIFACT_NAME }}-${{ steps.getrelease.outputs.version }}
           path: release-notes.md
 
       - name: Upload Binary Release
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BINARY_ARTIFACT_NAME }}-${{ steps.getrelease.outputs.version }}
           path: release/*
@@ -105,7 +105,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Download Release Notes and Build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: builds
 
