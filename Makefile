@@ -21,7 +21,7 @@ OUTPUTDIR = out
 # Containerized build parameters.
 # Based on Azure/aks-engine Makefile
 REPO_PATH := github.com/Microsoft/windows-container-networking
-DEV_ENV_IMAGE := golang:1.21
+DEV_ENV_IMAGE := golang:1.23
 DEV_ENV_WORK_DIR := /go/src/${REPO_PATH}
 DEV_ENV_OPTS := --rm -v ${CURDIR}:${DEV_ENV_WORK_DIR} -w ${DEV_ENV_WORK_DIR} ${DEV_ENV_VARS}
 # Multi-stage Dockerfile that creates the final image from golang:1.21.1
