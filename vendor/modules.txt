@@ -131,18 +131,16 @@ go.opencensus.io/internal
 go.opencensus.io/trace
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/tracestate
-# golang.org/x/net v0.29.0
-## explicit; go 1.18
-# golang.org/x/sync v0.10.0
-## explicit; go 1.18
+# golang.org/x/net v0.38.0
+## explicit; go 1.23.0
+# golang.org/x/sync v0.12.0
+## explicit; go 1.23.0
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.28.0 => golang.org/x/sys v0.1.0
+# golang.org/x/sys v0.31.0 => golang.org/x/sys v0.1.0
 ## explicit; go 1.17
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-# golang.org/x/text v0.21.0
-## explicit; go 1.18
 # github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.5
 # golang.org/x/sys => golang.org/x/sys v0.1.0
