@@ -239,7 +239,7 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) (ninfo *network
 		ip, s, _ := net.ParseCIDR(config.Ipam.Subnet)
 		gatewayIP := ip.To4()
 		gatewayIP[3]++
-		if config.Ipam.Routes != nil && len(config.Ipam.Routes) > 0 && config.Ipam.Routes[0].GW != nil {
+		if len(config.Ipam.Routes) > 0 && config.Ipam.Routes[0].GW != nil {
 			gatewayIP = config.Ipam.Routes[0].GW
 		}
 		subnet := network.SubnetInfo{

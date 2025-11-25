@@ -10,7 +10,7 @@ on:
 name: Release
 
 env:
-  GO_VERSION: 1.21.1
+  GO_VERSION: 1.23
   BINARY_ARTIFACT_NAME: "windows-cni-binaries"
   RELEASE_NOTES_ARTIFACT_NAME: "windows-cni-release-notes"
 

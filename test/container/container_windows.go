@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -323,7 +322,7 @@ func (t *testIO) Wait() error {
 }
 
 func readPidFile(path string) (int, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return -1, errors.Wrap(err, "failed to read pidfile")
 	}
@@ -335,7 +334,7 @@ func readPidFile(path string) (int, error) {
 }
 
 func createTempDir(t *testing.T) string {
-	tempDir, err := ioutil.TempDir("", "test")
+	tempDir, err := os.MkdirTemp("", "test")
 	if err != nil {
 		t.Fatalf("failed to create temporary directory: %s", err)
 	}
@@ -367,7 +366,7 @@ func getLayers(t *testing.T, imageName string) []string {
 
 func getLayerChain(t *testing.T, layerFolder string) []string {
 	jPath := filepath.Join(layerFolder, "layerchain.json")
-	content, err := ioutil.ReadFile(jPath)
+	content, err := os.ReadFile(jPath)
 	if os.IsNotExist(err) {
 		t.Fatalf("layerchain not found")
 	} else if err != nil {

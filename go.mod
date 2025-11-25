@@ -1,6 +1,6 @@
 module github.com/Microsoft/windows-container-networking
 
-go 1.21.1
+go 1.23
 
 require (
 	github.com/Microsoft/go-winio v0.5.2

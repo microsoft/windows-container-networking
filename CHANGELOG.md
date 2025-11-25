@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Updated Go version to 1.23
+- Updated golangci-lint to v1.62.2 for Go 1.23 compatibility
+- Updated vendored dependencies for Go 1.23
+
 ## [v0.3.2] - 2025-11-21
 
 ### Changed
