@@ -1,6 +1,6 @@
 module github.com/Microsoft/windows-container-networking
 
-go 1.21.1
+go 1.23.0
 
 require (
 	github.com/Microsoft/go-winio v0.5.2
@@ -10,7 +10,7 @@ require (
 	github.com/opencontainers/runtime-tools v0.0.0-20190313075039-7125f1d443b0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.8.1
-	golang.org/x/sync v0.10.0
+	golang.org/x/sync v0.12.0
 )
 
 require (
@@ -30,9 +30,8 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.1.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
-	golang.org/x/net v0.29.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
 )
 
 replace (
