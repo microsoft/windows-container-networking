@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.3] - 2025-11-25
+
 ### Changed
 - Updated Go version to 1.23
 - Updated golangci-lint to v1.62.2 for Go 1.23 compatibility
@@ -64,7 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Initial changelog tracking
 
-[Unreleased]: https://github.com/microsoft/windows-container-networking/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/microsoft/windows-container-networking/compare/v0.3.3...HEAD
+[v0.3.3]: https://github.com/microsoft/windows-container-networking/compare/v0.3.2...v0.3.3
 [v0.3.2]: https://github.com/microsoft/windows-container-networking/compare/v0.3.1...v0.3.2
 [v0.3.1]: https://github.com/microsoft/windows-container-networking/compare/v0.3.0...v0.3.1
 [v0.3.0]: https://github.com/microsoft/windows-container-networking/compare/v0.2.2...v0.3.0
