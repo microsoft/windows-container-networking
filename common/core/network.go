@@ -219,16 +219,50 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 	// Apply the Network Policy for Endpoint
 	epInfo.Policies = append(epInfo.Policies, networkInfo.Policies...)
 
-	// If LoopbackDSR is set, add to policies
+	hnsIPAM := false
+	// If LoopbackDSR is set and IP is already allocated via IPAM, add to policies before endpoint creation
 	if cniConfig.OptionalFlags.LoopbackDSR {
-		hcnLoopbackRoute, _ := network.GetLoopbackDSRPolicy(&epInfo.IPAddress)
-		epInfo.Policies = append(epInfo.Policies, hcnLoopbackRoute)
+		if len(epInfo.IPAddress) > 0 {
+			hcnLoopbackRoute, err := network.GetLoopbackDSRPolicy(epInfo.IPAddress)
+			if err != nil {
+				logrus.Errorf("[cni-net] Failed to create loopbackDSR policy: %v, IPAddress: %v", err, epInfo.IPAddress)
+				return err
+			}
+			logrus.Debugf("[cni-net] Created loopbackDSR policy for IP: %v", epInfo.IPAddress)
+			epInfo.Policies = append(epInfo.Policies, hcnLoopbackRoute)
+		} else {
+			// IP will be assigned by HCN, add the loopbackDSR policy after endpoint creation
+			hnsIPAM = true
+			logrus.Debugf("[cni-net] IP not yet assigned, add loopbackDSR policy after endpoint creation")
+		}
 	}
 
 	epInfo, err = plugin.nm.CreateEndpoint(nwConfig.ID, epInfo, args.Netns)
 	if err != nil {
 		logrus.Errorf("[cni-net] Failed to create endpoint, error : %v.", err)
 		return err
+	}
+
+	// If LoopbackDSR is set but IP wasn't allocated via IPAM, add the policy after endpoint creation
+	if hnsIPAM {
+		if len(epInfo.IPAddress) == 0 {
+			logrus.Errorf("[cni-net] LoopbackDSR is enabled but endpoint IP address is not set after endpoint creation")
+			return errors.New("loopbackDSR requires IP address to be allocated")
+		}
+
+		logrus.Debugf("[cni-net] Adding loopbackDSR policy for IP: %v after endpoint creation", epInfo.IPAddress)
+		hcnLoopbackRoute, err := network.GetLoopbackDSRPolicy(epInfo.IPAddress)
+		if err != nil {
+			logrus.Errorf("[cni-net] Failed to create loopbackDSR policy after endpoint creation: %v, IPAddress: %v", err, epInfo.IPAddress)
+			return err
+		}
+
+		err = plugin.nm.ApplyPolicy(epInfo.ID, hcnLoopbackRoute)
+		if err != nil {
+			logrus.Errorf("[cni-net] Failed to apply loopbackDSR policy to endpoint: %v", err)
+			return err
+		}
+		logrus.Debugf("[cni-net] Successfully applied loopbackDSR policy to endpoint")
 	}
 
 	// Convert result to the requested CNI version.
