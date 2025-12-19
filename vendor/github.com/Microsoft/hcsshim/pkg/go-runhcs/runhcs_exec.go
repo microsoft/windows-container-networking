@@ -1,3 +1,5 @@
+//go:build windows
+
 package runhcs
 
 import (
@@ -49,7 +51,7 @@ func (opt *ExecOpts) args() ([]string, error) {
 
 // Exec executes an additional process inside the container based on the
 // oci.Process spec found at processFile.
-func (r *Runhcs) Exec(context context.Context, id, processFile string, opts *ExecOpts) error {
+func (r *Runhcs) Exec(ctx context.Context, id, processFile string, opts *ExecOpts) error {
 	args := []string{"exec", "--process", processFile}
 	if opts != nil {
 		oargs, err := opts.args()
@@ -58,14 +60,14 @@ func (r *Runhcs) Exec(context context.Context, id, processFile string, opts *Exe
 		}
 		args = append(args, oargs...)
 	}
-	cmd := r.command(context, append(args, id)...)
+	cmd := r.command(ctx, append(args, id)...)
 	if opts != nil && opts.IO != nil {
 		opts.Set(cmd)
 	}
 	if cmd.Stdout == nil && cmd.Stderr == nil {
 		data, err := cmdOutput(cmd, true)
 		if err != nil {
-			return fmt.Errorf("%s: %s", err, data)
+			return fmt.Errorf("%s: %s", err, data) //nolint:errorlint // legacy code
 		}
 		return nil
 	}
@@ -82,7 +84,7 @@ func (r *Runhcs) Exec(context context.Context, id, processFile string, opts *Exe
 	}
 	status, err := runc.Monitor.Wait(cmd, ec)
 	if err == nil && status != 0 {
-		err = fmt.Errorf("%s did not terminate sucessfully", cmd.Args[0])
+		err = fmt.Errorf("%s did not terminate successfully", cmd.Args[0])
 	}
 	return err
 }

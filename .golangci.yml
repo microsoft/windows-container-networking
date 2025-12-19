@@ -1,0 +1,16 @@
+linters:
+  enable:
+    - gofmt
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused
+
+run:
+  timeout: 8m
+  modules-download-mode: vendor
+  go: '1.23'
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

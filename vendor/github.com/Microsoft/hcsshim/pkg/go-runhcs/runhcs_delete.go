@@ -1,3 +1,5 @@
+//go:build windows
+
 package runhcs
 
 import (
@@ -20,7 +22,7 @@ func (opt *DeleteOpts) args() ([]string, error) {
 
 // Delete any resources held by the container often used with detached
 // containers.
-func (r *Runhcs) Delete(context context.Context, id string, opts *DeleteOpts) error {
+func (r *Runhcs) Delete(ctx context.Context, id string, opts *DeleteOpts) error {
 	args := []string{"delete"}
 	if opts != nil {
 		oargs, err := opts.args()
@@ -29,5 +31,5 @@ func (r *Runhcs) Delete(context context.Context, id string, opts *DeleteOpts) er
 		}
 		args = append(args, oargs...)
 	}
-	return r.runOrError(r.command(context, append(args, id)...))
+	return r.runOrError(r.command(ctx, append(args, id)...))
 }
