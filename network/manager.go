@@ -4,6 +4,7 @@
 package network
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/Microsoft/hcsshim/hcn"
 	"github.com/Microsoft/windows-container-networking/common"
@@ -33,6 +34,7 @@ type Manager interface {
 	DeleteEndpoint(endpointID string) error
 	GetEndpoint(endpointID string, withIpv6 bool) (*EndpointInfo, error)
 	GetEndpointByName(endpointName string, withIpv6 bool) (*EndpointInfo, error)
+	ApplyPolicy(endpointID string, policy Policy) error
 }
 
 // NewManager creates a new networkManager.
@@ -209,4 +211,32 @@ func (nm *networkManager) GetEndpointByName(endpointName string, withIpv6 bool) 
 	}
 
 	return GetEndpointInfoFromHostComputeEndpoint(hcnEndpoint, withIpv6), nil
+}
+
+// ApplyPolicy applies a policy to an existing endpoint.
+func (nm *networkManager) ApplyPolicy(endpointID string, policy Policy) error {
+	nm.Lock()
+	defer nm.Unlock()
+
+	hcnEndpoint, err := hcn.GetEndpointByID(endpointID)
+	if err != nil {
+		return fmt.Errorf("failed to get endpoint %s: %v", endpointID, err)
+	}
+
+	var endpointPolicy hcn.EndpointPolicy
+	err = json.Unmarshal(policy.Data, &endpointPolicy)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal policy: %v", err)
+	}
+
+	policyRequest := hcn.PolicyEndpointRequest{
+		Policies: []hcn.EndpointPolicy{endpointPolicy},
+	}
+
+	err = hcnEndpoint.ApplyPolicy(hcn.RequestTypeAdd, policyRequest)
+	if err != nil {
+		return fmt.Errorf("failed to apply policy to endpoint: %v", err)
+	}
+
+	return nil
 }

@@ -6,6 +6,7 @@ package network
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -81,7 +82,10 @@ func GetPortMappingPolicy(externalPort int, internalPort int, protocol string, h
 }
 
 // GetLoopbackDSRPolicy creates a policy to support loopback direct server return.
-func GetLoopbackDSRPolicy(ip *net.IP) (Policy, error) {
+func GetLoopbackDSRPolicy(ip net.IP) (Policy, error) {
+	if len(ip) == 0 {
+		return Policy{}, fmt.Errorf("IP address cannot be empty for loopbackDSR policy")
+	}
 	hcnLoopbackRoute := hcn.OutboundNatPolicySetting{
 		Destinations: []string{ip.String()},
 	}
