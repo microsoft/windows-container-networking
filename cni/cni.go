@@ -88,6 +88,7 @@ type NetworkConfig struct {
 	CniVersion       string           `json:"cniVersion"`
 	Name             string           `json:"name"` // Name is the Network Name.
 	Type             hcn.NetworkType  `json:"type"` // As per SPEC, Type is Name of the Binary
+	Master           string           `json:"master,omitempty"` // Host interface name to bind the network to
 	Ipam             IpamConfig       `json:"ipam"`
 	DNS              cniTypes.DNS     `json:"dns"`
 	OptionalFlags    OptionalFlags    `json:"optionalFlags"`
@@ -279,8 +280,13 @@ func (config *NetworkConfig) GetNetworkInfo(podNamespace string) (ninfo *network
 		Name:          config.Name,
 		Type:          config.Type,
 		Subnets:       subnets,
-		InterfaceName: "",
+		InterfaceName: config.Master,
 		DNS:           dnsSettings,
+	}
+	
+	// Log when master interface is specified
+	if config.Master != "" {
+		logrus.Infof("[cni-net] Using master interface '%s' for network '%s'", config.Master, config.Name)
 	}
 	if config.AdditionalArgs != nil {
 		for _, kvp := range config.AdditionalArgs {
