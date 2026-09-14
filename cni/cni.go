@@ -28,7 +28,7 @@ const (
 )
 
 // Supported CNI versions.
-var VersionsSupported = []string{"0.2.0", "0.3.0", "0.4.0", "1.0.0"}
+var VersionsSupported = []string{"0.2.0", "0.3.0", "0.3.1", "0.4.0", "1.0.0"}
 
 // Aliases for the Windows CNI plugin binary names:
 const (
