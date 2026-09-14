@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
         with:
           ref: ${{ github.ref }}
 
@@ -58,7 +58,7 @@ jobs:
           }
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@7b8cf10d4e4a01d4992d18a89f4d7dc5a3e6d6f4 # v4.3.0
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -73,13 +73,13 @@ jobs:
           git tag -l ${version#refs/tags/} -n20000 | tail -n +3 | cut -c 5- >release-notes.md
 
       - name: Upload Release Notes
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ env.RELEASE_NOTES_ARTIFACT_NAME }}-${{ steps.getrelease.outputs.version }}
           path: release-notes.md
 
       - name: Upload Binary Release
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ${{ env.BINARY_ARTIFACT_NAME }}-${{ steps.getrelease.outputs.version }}
           path: release/*
@@ -105,7 +105,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Download Release Notes and Build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: builds
 
@@ -169,7 +169,7 @@ jobs:
           done
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v0.1.15
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fail_on_unmatched_files: true
