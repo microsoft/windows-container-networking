@@ -1,3 +1,5 @@
+//go:build windows
+
 package runhcs
 
 import (
@@ -62,7 +64,7 @@ func (opt *CreateOpts) args() ([]string, error) {
 
 // Create creates a new container and returns its pid if it was created
 // successfully.
-func (r *Runhcs) Create(context context.Context, id, bundle string, opts *CreateOpts) error {
+func (r *Runhcs) Create(ctx context.Context, id, bundle string, opts *CreateOpts) error {
 	args := []string{"create", "--bundle", bundle}
 	if opts != nil {
 		oargs, err := opts.args()
@@ -71,14 +73,14 @@ func (r *Runhcs) Create(context context.Context, id, bundle string, opts *Create
 		}
 		args = append(args, oargs...)
 	}
-	cmd := r.command(context, append(args, id)...)
+	cmd := r.command(ctx, append(args, id)...)
 	if opts != nil && opts.IO != nil {
 		opts.Set(cmd)
 	}
 	if cmd.Stdout == nil && cmd.Stderr == nil {
 		data, err := cmdOutput(cmd, true)
 		if err != nil {
-			return fmt.Errorf("%s: %s", err, data)
+			return fmt.Errorf("%s: %s", err, data) //nolint:errorlint // legacy code
 		}
 		return nil
 	}
@@ -95,7 +97,7 @@ func (r *Runhcs) Create(context context.Context, id, bundle string, opts *Create
 	}
 	status, err := runc.Monitor.Wait(cmd, ec)
 	if err == nil && status != 0 {
-		err = fmt.Errorf("%s did not terminate sucessfully", cmd.Args[0])
+		err = fmt.Errorf("%s did not terminate successfully", cmd.Args[0])
 	}
 	return err
 }
