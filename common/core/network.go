@@ -133,6 +133,18 @@ func (plugin *netPlugin) Add(args *cniSkel.CmdArgs) (resultError error) {
 		return err
 	}
 
+	epConfig, err := cni.ParseCniEndpointArgs(args.Args)
+	if err == nil {
+		if epConfig.MAC != "" {
+			hwAddr, err := net.ParseMAC(string(epConfig.MAC))
+			if err != nil {
+				logrus.Errorf("[cni-net] Failed to parse MAC address '%s', err:%v", epConfig.MAC, err)
+				return err
+			}
+
+			epInfo.MacAddress = hwAddr
+		}
+	}
 	epInfo.DualStack = cniConfig.OptionalFlags.EnableDualStack
 
 	// Check for missing namespace
